@@ -37,9 +37,20 @@ def update_contact(user_id):
         return jsonify({"message": "User not found"}), 404
 
     data = request.json
-    contact.first_name = data.get("firstName", contact.first_name)
-    contact.last_name = data.get("lastName", contact.last_name)
-    contact.email = data.get("email", contact.email)
+
+    first_name = data.get("firstName")
+    last_name = data.get("lastName")
+    email = data.get("email")
+
+    if not first_name or not last_name or not email:
+        return (
+            jsonify({"message": "You must include a first name, last name and email"}),
+            400,
+        )    
+
+    contact.first_name = first_name
+    contact.last_name = last_name
+    contact.email = email
 
     db.session.commit()
 

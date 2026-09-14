@@ -27,7 +27,7 @@ const ContactForm = ({ existingContact = {}, updateCallback}) => {
         const response = await fetch(url, options)
         if (response.status !== 201 && response.status !== 200) {
             const message = await response.json()
-            alert(data.message)
+            alert(message.message)
         } else {
            updateCallback()
         }
