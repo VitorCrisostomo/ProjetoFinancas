@@ -1,6 +1,7 @@
 from flask import request, jsonify
 from config import app, db
-from models import Contact
+from models.contact import Contact
+from validations import is_valid_email
 
 @app.route("/contacts", methods=["GET"])
 def get_contacts():
@@ -13,6 +14,12 @@ def create_contact():
     first_name = request.json.get("firstName")
     last_name = request.json.get("lastName")
     email = request.json.get("email")
+
+    if not is_valid_email(email):
+        return(
+            jsonify({"message": "Your email must be valid"}),
+            400,
+        )
 
     if not first_name or not last_name or not email:
         return (
