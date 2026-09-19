@@ -1,7 +1,7 @@
 from flask import request, jsonify
 from config import app, db
-from backend.repository.user_repository import UserRepository
-from backend.validators.email_validator import is_valid_email
+from repositories.user_repository import UserRepository
+from validators.email_validator import is_valid_email
 
 @app.route("/contacts", methods=["GET"])
 def get_contacts():
