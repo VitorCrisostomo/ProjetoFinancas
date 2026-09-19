@@ -1,16 +1,16 @@
 from flask import request, jsonify
 from config import app, db
-from models.contact import Contact
-from validations import is_valid_email
+from backend.repository.user_repository import UserRepository
+from backend.validators.email_validator import is_valid_email
 
 @app.route("/contacts", methods=["GET"])
 def get_contacts():
-    contacts = Contact.query.all()
+    contacts = User.query.all()
     json_contacts = list(map(lambda x: x.to_json(), contacts))
     return jsonify({"contacts": json_contacts})
 
-@app.route("/create_contact", methods=["POST"])
-def create_contact():
+@app.route("/create_user", methods=["POST"])
+def create_user():
     first_name = request.json.get("firstName")
     last_name = request.json.get("lastName")
     email = request.json.get("email")
@@ -27,7 +27,7 @@ def create_contact():
             400,
         )
 
-    new_contact = Contact(first_name=first_name, last_name=last_name, email=email)
+    new_contact = User(first_name=first_name, last_name=last_name, email=email)
     try:
         db.session.add(new_contact)
         db.session.commit()
@@ -38,9 +38,9 @@ def create_contact():
 
 @app.route("/update_contact/<int:user_id>", methods=["PATCH"])
 def update_contact(user_id):
-    contact = Contact.query.get(user_id)
+    user = User.query.get(user_id)
 
-    if not contact:
+    if not user:
         return jsonify({"message": "User not found"}), 404
 
     data = request.json
@@ -55,9 +55,9 @@ def update_contact(user_id):
             400,
         )    
 
-    contact.first_name = first_name
-    contact.last_name = last_name
-    contact.email = email
+    user.first_name = first_name
+    user.last_name = last_name
+    user.email = email
 
     db.session.commit()
 
@@ -65,12 +65,12 @@ def update_contact(user_id):
 
 @app.route("/delete_contact/<int:user_id>", methods=["DELETE"])
 def delete_contact(user_id):
-    contact = Contact.query.get(user_id)
+    user = User.query.get(user_id)
 
-    if not contact:
+    if not user:
         return jsonify({"message": "User not found"}), 404
 
-    db.session.delete(contact)
+    db.session.delete(user)
     db.session.commit()
 
     return jsonify({"message": "User deleted!"}), 200

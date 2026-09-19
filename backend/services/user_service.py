@@ -1,0 +1,35 @@
+from models.user import User
+from repositories.user_repository import UserRepository
+from validators.email_validator import is_valid_email
+
+
+class UserService:
+
+    def __init__(self):
+        self.repository = UserRepository()
+
+    def get_all_users(self):
+        return self.repository.get_all()
+
+    def create_user(self, data):
+
+        first_name = data.get("firstName")
+        last_name = data.get("lastName")
+        email = data.get("email")
+
+        if not first_name:
+            raise ValueError("First name is required")
+
+        if not last_name:
+            raise ValueError("Last name is required")
+
+        if not is_valid_email(email):
+            raise ValueError("Invalid email")
+
+        user = User(
+            first_name=first_name,
+            last_name=last_name,
+            email=email
+        )
+
+        return self.repository.create(user)
