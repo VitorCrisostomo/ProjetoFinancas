@@ -1,10 +1,11 @@
 from config import db
 
 class User(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    first_name = db.Column(db.String(80), unique=False, nullable=False)
-    last_name = db.Column(db.String(80), unique=False, nullable=False)
-    email = db.Column(db.String(80), unique=True, nullable=False)
+    id           = db.Column(db.Integer, primary_key=True)
+    first_name   = db.Column(db.String(80), unique=False, nullable=False)
+    last_name    = db.Column(db.String(80), unique=False, nullable=False)
+    email        = db.Column(db.String(80), unique=True, nullable=False)
+    transactions = db.relationship("Transaction", backref="user", lazy=True)
 
     def to_json(self):
         return {

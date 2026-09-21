@@ -1,4 +1,4 @@
-from backend.models.transaction import Transaction
+from models.transaction import Transaction
 from config import db
 
 
