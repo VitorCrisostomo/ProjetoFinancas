@@ -1,56 +1,36 @@
-import { useState, useEffect } from 'react'
-import UserList from './ContactList'
-import './App.css'
-import UserForm from './ContactForm'
+// src/App.jsx
+
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
+import UsersPage from './pages/UsersPage';
+import './styles/App.css';
 
 function App() {
-  const [users, setContacts] = useState([])
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [currentUsers, setCurrentUsers] = useState({})
+  return (
+    <Router>
+      <nav style={{ padding: '10px', backgroundColor: '#f0f0f0', marginBottom: '20px' }}>
+        <ul style={{ listStyle: 'none', display: 'flex', gap: '15px', margin: 0, padding: 0 }}>
+          <li>
+            <Link to="/">Início</Link>
+          </li>
+          <li>
+            <Link to="/users">Usuários</Link>
+          </li>
+          {/* Futuramente, você adicionará o link para Transações aqui */}
+          {/* <li><Link to="/transactions">Transações</Link></li> */}
+        </ul>
+      </nav>
 
-  useEffect(() => {
-    fetchContacts()
-  }, [])
+      <main style={{ padding: '20px' }}>
+        <Routes>
+          <Route path="/" element={<h2>Bem-vindo ao Sistema</h2>} />
+          <Route path="/users" element={<UsersPage />} />
+          
+          {/* Futuramente, você adicionará a rota para Transações aqui */}
+          {/* <Route path="/transactions" element={<TransactionsPage />} /> */}
+        </Routes>
+      </main>
+    </Router>
+  );
+}
 
-  const fetchContacts = async () => {
-    const response = await fetch("http://127.0.0.1:5000/users")
-    const data = await response.json()
-    setContacts(data.users)
-    console.log(data.users)
-  }
-
-  const closeModal = () => {
-    setIsModalOpen(false)
-    setCurrentUsers({})
-  }
-
-  const openCreateModal = () => {
-    if (!isModalOpen) setIsModalOpen(true)
-  }
-
-  const openEditModal = (users) => {
-    if (isModalOpen) return
-    setCurrentUsers(users)
-    setIsModalOpen(true)
-    }
-
-  const onUpdate = () => {
-    closeModal()
-    fetchContacts()
-  }
-    return (
-    <>
-      <UserList users={users} updateUser={openEditModal} updateCallback={onUpdate} />
-      <button onClick={openCreateModal}>Create New User</button>
-      {isModalOpen && <div className="modal">
-        <div className="modal-content">
-          <span className="close" onClick={closeModal}>&times;</span>
-          <UserForm existinguser={currentUsers} updateCallback={onUpdate}/>
-        </div>  
-      </div>
-      }
-    </>
-    );
-};
-
-export default App
+export default App;
