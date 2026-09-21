@@ -1,35 +1,37 @@
 import { useState } from "react";
+import { createUser, updateUser } from "../../services/userService"; // Importando as funções
 
 const UserForm = ({ existinguser = {}, updateCallback}) => {
-    const [firstName, setFirstName] = useState(existinguser.firstName || "")
-    const [lastName, setLastName] = useState(existinguser.lastName || "")
-    const [email, setEmail] = useState(existinguser.email || "")
+    const [firstName, setFirstName] = useState(existinguser.firstName || "");
+    const [lastName, setLastName] = useState(existinguser.lastName || "");
+    const [email, setEmail] = useState(existinguser.email || "");
 
-    const updating = Object.entries(existinguser).length !== 0
+    const updating = Object.entries(existinguser).length !== 0;
 
     const onSubmit = async (e) => {
-        e.preventDefault()
+        e.preventDefault();
 
         const data = {
             firstName,
             lastName,
             email
-        }
-        const url = "http://127.0.0.1:5000/" + (updating ? `update_users/${existinguser.id}` : "create_users")
-        const options = {
-            method: updating ? "PATCH" : "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify(data)
-        }
+        };
+        
+        try {
+            // A lógica de roteamento e métodos HTTP foi movida para api.js
+            const response = updating 
+                ? await updateUser(existinguser.id, data) 
+                : await createUser(data);
 
-        const response = await fetch(url, options)
-        if (response.status !== 201 && response.status !== 200) {
-            const message = await response.json()
-            alert(message.message)
-        } else {
-           updateCallback()
+            if (response.status !== 201 && response.status !== 200) {
+                const message = await response.json();
+                alert(message.message);
+            } else {
+               updateCallback();
+            }
+        } catch (error) {
+            console.error("Erro ao salvar usuário:", error);
+            alert("Ocorreu um erro ao processar a requisição.");
         }
     }
 
@@ -42,7 +44,7 @@ const UserForm = ({ existinguser = {}, updateCallback}) => {
                     id="firstName"
                     value={firstName} 
                     onChange={(e) => setFirstName(e.target.value)}
-                    />
+                />
             </div>
             <div>
                 <label htmlFor="lastName">Last Name:</label>
@@ -51,7 +53,7 @@ const UserForm = ({ existinguser = {}, updateCallback}) => {
                     id="lastName"
                     value={lastName} 
                     onChange={(e) => setLastName(e.target.value)}
-                    />
+                />
             </div>
             <div>
                 <label htmlFor="email">Email:</label>
@@ -60,11 +62,11 @@ const UserForm = ({ existinguser = {}, updateCallback}) => {
                     id="email"
                     value={email} 
                     onChange={(e) => setEmail(e.target.value)}
-                    />
+                />
             </div>
             <button type="submit">{updating ? "Update" : "Create"}</button>
         </form>
     );
 };
 
-export default UserForm
+export default UserForm;

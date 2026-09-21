@@ -1,19 +1,17 @@
-import React from "react"
+import { deleteUser } from "../../services/userService";
 
 const UserList = ({users, updateUser, updateCallback}) => {
     const onDelete = async(id) => {
-        try{
-            const options = {
-                method: "DELETE"
-            }
-            const response = await fetch(`http://127.0.0.1:5000/delete_users/${id}`, options)
+        try {
+            const response = await deleteUser(id);
+            
             if (response.status === 200){
-                updateCallback()
+                updateCallback();
             } else {
-                console.error("Failed to delete")
+                console.error("Failed to delete");
             }
         } catch (error){
-            alert(error)
+            alert(error);
         }
     }
 
@@ -45,4 +43,4 @@ const UserList = ({users, updateUser, updateCallback}) => {
     </div>
 }
 
-export default UserList
+export default UserList;
