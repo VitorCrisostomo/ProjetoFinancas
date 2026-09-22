@@ -1,8 +1,0 @@
-input, button, label{
-  margin-top: 10px;
-}
-
-body {
-  background-color: #c2c4c3; /* Substitua pelo código da cor que desejar */
-  margin: 0; /* Boa prática para remover as bordas brancas padrão do navegador */
-}
