@@ -1,3 +1,5 @@
+from werkzeug.security import generate_password_hash, check_password_hash
+
 from models.user import User
 from exceptions.api_errors import NotFoundError, ValidationError
 from repositories.user_repository import UserRepository
@@ -12,42 +14,36 @@ class UserService:
     def get_all_users(self):
         return self.repository.get_all()
 
-    def create_user(self, data):
-
-        first_name = data.get("firstName")
-        last_name = data.get("lastName")
-        email = data.get("email")
+    def create_user(self, first_name, password):
 
         if not first_name:
             raise ValidationError("First name is required")
 
-        if not last_name:
-            raise ValidationError("Last name is required")
+        if not password:
+            raise ValidationError("Password is required")
 
-        if not is_valid_email(email):
-            raise ValidationError("Invalid email")
+        password_hash = generate_password_hash(password)
 
         user = User(
             first_name=first_name,
-            last_name=last_name,
-            email=email
+            password=password_hash
         )
 
         return self.repository.create(user)
+
+    def check_password(self, user, password):
+        return check_password_hash(user.password, password)
+    
     def update_user(self, user_id, data):
 
         first_name = data.get("firstName")
-        last_name = data.get("lastName")
-        email = data.get("email")
+        password = data.get("password")
 
         if not first_name:
             raise ValidationError("First name is required")
 
-        if not last_name:
-            raise ValidationError("Last name is required")
-
-        if not is_valid_email(email):
-            raise ValidationError("Invalid email")
+        if not password:
+            raise ValidationError("Password is invalid")
 
         user = self.repository.get_by_id(user_id)
 
@@ -55,8 +51,7 @@ class UserService:
             raise NotFoundError("User not found")
 
         user.first_name = first_name
-        user.last_name = last_name
-        user.email = email
+        user.password = password
 
         return self.repository.update(user)
 
