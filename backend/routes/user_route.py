@@ -38,3 +38,24 @@ def delete_user(user_id):
         user_service.delete_user(user_id)
 
         return jsonify({"message": "User deleted successfully"}), 200
+
+@user_routes.route("/login", methods=["POST"])
+def login():
+    # Isso vai imprimir imediatamente o que chegou do React
+    print("\n=== REQUISIÇÃO RECEBIDA ===", flush=True)
+    print("Cabeçalhos:", request.headers.get("Content-Type"), flush=True)
+    print("Dados JSON:", request.json, flush=True)
+    print("===========================\n", flush=True)
+
+    data = request.json
+    
+    # Se o data vier vazio, já sabemos que o React não enviou certo
+    if not data:
+        return jsonify({"message": "Nenhum dado recebido"}), 400
+
+    user = user_service.authenticate_user(data)
+
+    return jsonify({
+        "message": "Login realizado com sucesso!",
+        "user": user.to_json()
+    }), 200

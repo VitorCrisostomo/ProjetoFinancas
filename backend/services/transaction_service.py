@@ -25,17 +25,14 @@ class TransactionService:
         if not date:
             raise ValidationError("Date is required")
 
-        if not name:
-            raise ValidationError("Name is required")
-
         if not user_id:
             raise ValidationError("UserId is required")
 
         if not category:
-            category = "Others"
+            raise ValidationError("Category is required")
 
         if not description:
-            description = ""
+            raise ValidationError("Description is required")
 
         transaction = Transaction(
             user_id=user_id,

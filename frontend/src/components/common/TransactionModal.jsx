@@ -1,5 +1,4 @@
-import React, { useState } from "react";
-import { initialTransactions } from "../../App";
+import { useState } from "react";
 import { categoryIcons } from "../../utils/category";
 import Button from "./Button";
 

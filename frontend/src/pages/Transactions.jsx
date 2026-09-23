@@ -1,10 +1,9 @@
-import React, { useState } from "react";
-import HomePage from "./Home.jsx";
-import Button from "../components/common/Button.jsx";
+import { useState } from "react";
 import { categoryIcons } from "../utils/category.jsx";
-import TransactionModal from "../components/common/TransactionModal.jsx"
-import formatDate from "../utils/date.jsx"
 import formatCurrency from "../utils/currency.jsx";
+import formatDate from "../utils/date.jsx"
+import Button from "../components/common/Button.jsx";
+import TransactionModal from "../components/common/TransactionModal.jsx"
 
 const TransactionsPage = ({ transactions, onAddTransaction, onDeleteTransaction }) => {
   const [modalOpen, setModalOpen] = useState(false);
