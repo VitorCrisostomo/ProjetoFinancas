@@ -1,5 +1,4 @@
-import React, { useState } from "react";
-import { initialTransactions } from "../App";
+import { useState } from "react";
 
 const Sidebar = ({ currentPage, onPageChange, onLogout }) => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);

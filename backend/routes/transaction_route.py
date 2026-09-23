@@ -26,7 +26,7 @@ def create_transaction():
 def get_transactions():
     transactions = transaction_service.get_all_transactions()
 
-    return jsonify({"transactions": [transaction.to_json() for transaction in transactions]})
+    return jsonify([transaction.to_json() for transaction in transactions])
 
 @transaction_routes.route("/update_transactions/<int:transaction_id>", methods=["PATCH"])
 def update_transaction(transaction_id):

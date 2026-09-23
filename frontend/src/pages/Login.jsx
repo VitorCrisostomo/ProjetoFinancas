@@ -1,17 +1,16 @@
-import React, { useState } from "react";
+import { useState } from "react";
 import Button from "../components/common/Button" 
-import Card from "../components/common/Card";
 
 const LoginPage = ({ onLogin }) => {
-  const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    // Simulação básica de validação de login
-    if (email && password) {
-      onLogin({ name: 'João Silva', email });
+    if (name && password) {
+      // O SEGREDO ESTÁ AQUI: Você precisa enviar name E password
+      onLogin({ name: name, password: password }); 
     } else {
       setError('Por favor, preencha todos os campos.');
     }
@@ -30,12 +29,12 @@ const LoginPage = ({ onLogin }) => {
 
         <form onSubmit={handleSubmit} className="login-form">
           <div className="form-group">
-            <label>E-mail</label>
+            <label>Nome</label>
             <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="seu@email.com"
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Seu nome"
               required
             />
           </div>
@@ -57,7 +56,7 @@ const LoginPage = ({ onLogin }) => {
         </form>
 
         <div className="login-footer">
-          <p>Dica: Digite qualquer e-mail e senha para testar.</p>
+          <p>Caso esqueça a senha, entrar em contato com Vítor.</p>
         </div>
       </div>
     </div>

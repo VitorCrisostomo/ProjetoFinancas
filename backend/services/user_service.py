@@ -14,10 +14,39 @@ class UserService:
     def get_all_users(self):
         return self.repository.get_all()
 
-    def create_user(self, first_name, password):
+    def authenticate_user(self, data):
+        # Tenta pegar "username" ou "name" (cobrindo como o React pode estar enviando)
+        username = data.get("username") or data.get("name")
+        password = data.get("password")
 
-        if not first_name:
-            raise ValidationError("First name is required")
+        if not username:
+            raise ValidationError("Username is required")
+
+        if not password:
+            raise ValidationError("Password is required")
+
+        user = self.repository.get_by_username(username)
+
+        # --- MODO DETETIVE: Imprime no terminal do backend ---
+        print("\n--- DEBUG DE LOGIN ---", flush=True)
+        print(f"Nome recebido do React: '{username}'", flush=True)
+        print(f"Usuário encontrado no banco de dados? {'SIM' if user else 'NÃO'}", flush=True)
+        if user:
+            print(f"Hash salvo no banco: {user.password}", flush=True)
+            senha_ok = self.check_password(user, password)
+            print(f"A senha digitada bate com o hash? {'SIM' if senha_ok else 'NÃO'}", flush=True)
+        print("----------------------\n", flush=True)
+        # ----------------------------------------------------
+
+        if not user or not self.check_password(user, password):
+            raise ValidationError("Nome ou senha incorretos")
+
+        return user
+
+    def create_user(self, username, password):
+
+        if not username:
+            raise ValidationError("UserName is required")
 
         if not password:
             raise ValidationError("Password is required")
@@ -25,7 +54,7 @@ class UserService:
         password_hash = generate_password_hash(password)
 
         user = User(
-            first_name=first_name,
+            username=username,
             password=password_hash
         )
 
@@ -36,10 +65,10 @@ class UserService:
     
     def update_user(self, user_id, data):
 
-        first_name = data.get("firstName")
+        username = data.get("firstName")
         password = data.get("password")
 
-        if not first_name:
+        if not username:
             raise ValidationError("First name is required")
 
         if not password:
@@ -50,7 +79,7 @@ class UserService:
         if not user:
             raise NotFoundError("User not found")
 
-        user.first_name = first_name
+        user.username = username
         user.password = password
 
         return self.repository.update(user)

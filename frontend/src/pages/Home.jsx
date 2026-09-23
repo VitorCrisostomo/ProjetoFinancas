@@ -1,8 +1,6 @@
-import React, { useState } from "react";
-import { initialTransactions } from "../App";
 import formatCurrency from "../utils/currency";
 import Card from "../components/common/Card";
-import { categoryIcons } from "../utils/category"
+import { categoryIcons } from "../utils/category";
 
 const HomePage = ({ transactions }) => {
   const totalIncome = transactions

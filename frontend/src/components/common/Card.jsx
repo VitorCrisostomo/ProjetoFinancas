@@ -1,5 +1,3 @@
-import React from "react";
-
 const Card = ({ title, value, icon, color = '#3b82f6', children, className = '' }) => {
   return (
     <div className={`card ${className}`} style={{ '--card-color': color }}>

@@ -1,98 +1,125 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import LoginPage from "./pages/Login.jsx";
 import HomePage from "./pages/Home.jsx";
 import OverviewPage from "./pages/Overview.jsx";
 import TransactionsPage from "./pages/Transactions.jsx";
 import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
-import "./styles/App.css"
+import "./styles/App.css";
 
-// ============================================================================
-// DATA & UTILS
-// ============================================================================
-
-// Dados fictícios estruturados para fácil substituição por API
-export const initialTransactions = [
-  { id: 1, date: '2024-01-15', name: 'Salário', category: 'Salário', amount: 5000, type: 'income' },
-  { id: 2, date: '2024-01-18', name: 'Supermercado', category: 'Alimentação', amount: 350, type: 'expense' },
-  { id: 3, date: '2024-01-19', name: 'Aluguel', category: 'Moradia', amount: 1500, type: 'expense' },
-  { id: 4, date: '2024-01-20', name: 'Freelance', category: 'Extra', amount: 800, type: 'income' },
-  { id: 5, date: '2024-01-21', name: 'Netflix', category: 'Entretenimento', amount: 35, type: 'expense' },
-  { id: 6, date: '2024-01-22', name: 'Restaurante', category: 'Alimentação', amount: 120, type: 'expense' },
-  { id: 7, date: '2024-01-23', name: 'Gasolina', category: 'Transporte', amount: 200, type: 'expense' },
-  { id: 8, date: '2024-01-24', name: 'Bônus', category: 'Salário', amount: 1000, type: 'income' },
-];
-
-// Função utilitária para formatação de moeda
-
-// Função para formatar data
-
-// ============================================================================
-// COMPONENTES REUTILIZÁVEIS
-// ============================================================================
-
-// Card - Componente base para exibição de informações
-
-// Button - Componente de botão reutilizável
-
-// Modal - Componente para formulário de nova transação
-
-// ============================================================================
-// PÁGINAS (INCLUINDO LOGIN)
-// ============================================================================
-
-// Página de Login
-
-// Página Home - Dashboard Inicial
-
-// Página Overview - Análise Financeira
-
-// Página Transactions - Gerenciamento de Transações
-
-// ============================================================================
-// COMPONENTES DE LAYOUT
-// ============================================================================
-
-// Sidebar - Navegação lateral
-
-// Header - Cabeçalho da página
-
-// ============================================================================
-// APLICAÇÃO PRINCIPAL
-// ============================================================================
+// Defina a URL base do seu backend (ajuste a porta, Flask costuma ser 5000, FastAPI 8000)
+const API_URL = "http://localhost:5000"; 
 
 export default function FinancialDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentPage, setCurrentPage] = useState('home');
-  const [transactions, setTransactions] = useState(initialTransactions);
+  // Agora começa vazio! Os dados virão do banco.
+  const [transactions, setTransactions] = useState([]); 
 
-  const handleLogin = (userData) => {
-    setIsAuthenticated(true);
+  // --- 1. BUSCAR DADOS (GET) ---
+  // Esse useEffect roda automaticamente toda vez que 'isAuthenticated' muda para true
+  useEffect(() => {
+    if (isAuthenticated) {
+      const fetchTransactions = async () => {
+        try {
+          const response = await fetch(`${API_URL}/transactions`);
+          if (response.ok) {
+            const data = await response.json();
+            setTransactions(data);
+          } else {
+            console.error("Falha ao carregar transações");
+          }
+        } catch (error) {
+          console.error("Erro de conexão com a API:", error);
+        }
+      };
+      
+      fetchTransactions();
+    }
+  }, [isAuthenticated]);
+
+  // --- 2. LOGIN (POST) ---
+  const handleLogin = async (userData) => {
+    try {
+      // Envia nome e senha para a rota de login no backend
+      const response = await fetch(`${API_URL}/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(userData)
+      });
+
+      if (response.ok) {
+        setIsAuthenticated(true);
+      } else {
+        alert("Nome ou senha incorretos!");
+      }
+    } catch (error) {
+      console.error("Erro ao fazer login:", error);
+      alert("Não foi possível conectar ao servidor.");
+    }
   };
 
   const handleLogout = () => {
     setIsAuthenticated(false);
     setCurrentPage('home');
+    setTransactions([]); // Limpa as transações ao deslogar
   };
 
-  const handleAddTransaction = (newTransaction) => {
-    const transaction = {
-      ...newTransaction,
-      id: Math.max(...transactions.map((t) => t.id), 0) + 1,
-    };
-    setTransactions([...transactions, transaction]);
-  };
+  // --- 3. ADICIONAR (POST) ---
+  const handleAddTransaction = async (newTransaction) => {
+    try {
+      const response = await fetch(`${API_URL}/transactions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newTransaction)
+      });
 
-  const handleDeleteTransaction = (id) => {
-    if (window.confirm('Tem certeza que deseja deletar esta transação?')) {
-      setTransactions(transactions.filter((t) => t.id !== id));
+      if (response.ok) {
+        const savedTransaction = await response.json();
+        // Adiciona a transação que voltou do banco (agora com um ID real do banco)
+        setTransactions([...transactions, savedTransaction]);
+      }
+    } catch (error) {
+      console.error("Erro ao adicionar:", error);
     }
   };
 
-  const handleEditTransaction = (id, data) => {
-    setTransactions(
-      transactions.map((t) => (t.id === id ? { ...t, ...data } : t))
-    );
+  // --- 4. DELETAR (DELETE) ---
+  const handleDeleteTransaction = async (id) => {
+    if (window.confirm('Tem certeza que deseja deletar esta transação?')) {
+      try {
+        const response = await fetch(`${API_URL}/transactions/${id}`, {
+          method: 'DELETE',
+        });
+
+        if (response.ok) {
+          // Só remove da tela se o backend confirmar que deletou
+          setTransactions(transactions.filter((t) => t.id !== id));
+        }
+      } catch (error) {
+        console.error("Erro ao deletar:", error);
+      }
+    }
+  };
+
+  // --- 5. EDITAR (PUT / PATCH) ---
+  const handleEditTransaction = async (id, data) => {
+    try {
+      const response = await fetch(`${API_URL}/transactions/${id}`, {
+        method: 'PUT', // ou 'PATCH', dependendo de como você criar no backend
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data)
+      });
+
+      if (response.ok) {
+        const updatedTransaction = await response.json();
+        setTransactions(
+          transactions.map((t) => (t.id === id ? updatedTransaction : t))
+        );
+      }
+    } catch (error) {
+      console.error("Erro ao editar:", error);
+    }
   };
 
   const renderPage = () => {
@@ -133,7 +160,3 @@ export default function FinancialDashboard() {
     </div>
   );
 }
-
-// ============================================================================
-// ESTILOS CSS
-// ============================================================================
