@@ -124,6 +124,7 @@ class TransactionService:
 
         try:
             raw_data = file.stream.read()
+            # Tenta decodificar como UTF-8 primeiro, se der erro tenta Latin-1 (padrão Windows)
             try:
                 decoded_content = raw_data.decode("utf-8-sig") 
             except UnicodeDecodeError:
@@ -131,6 +132,7 @@ class TransactionService:
 
             stream = io.StringIO(decoded_content, newline=None)
             
+            # Descobre se o banco usou vírgula ou ponto-e-vírgula para separar as colunas
             primeira_linha = stream.readline()
             delimitador = ';' if ';' in primeira_linha else ','
             stream.seek(0)
@@ -150,8 +152,10 @@ class TransactionService:
                 nome_lancamento = clean_row.get("Lançamento", "").strip()
                 raw_date = clean_row.get("Data", "").strip()
 
+                nome_limpo_para_teste = nome_lancamento.upper().replace(" ", "")
+                
                 if (not nome_lancamento or 
-                    nome_lancamento in ["Saldo Anterior", "Saldo do dia", "Saldo Atual"] or 
+                    nome_limpo_para_teste in ["SALDODODIA", "SALDOATUAL", "SALDO", "SALDOANTERIOR"] or 
                     raw_date == "00/00/0000"):
                     continue
 
@@ -165,16 +169,28 @@ class TransactionService:
 
                 raw_value = clean_row.get("Valor", "0")
                 clean_value = raw_value.replace(".", "").replace(",", ".")
+                
                 try:
-                    float_value = abs(float(clean_value))
+                    parsed_float = float(clean_value)
+                    float_value = abs(parsed_float)
                 except ValueError:
+                    parsed_float = 0.0
                     float_value = 0.0
 
+                # 5. Descobre se é Entrada ou Saída
                 tipo_lancamento = clean_row.get("Tipo Lançamento", "").strip().lower()
-                if "entrada" in tipo_lancamento:
-                    transaction_type = "income"
+                
+                if tipo_lancamento:
+                    if "entrada" in tipo_lancamento:
+                        transaction_type = "income"
+                    else:
+                        transaction_type = "expense"
                 else:
-                    transaction_type = "expense"
+
+                    if parsed_float >= 0:
+                        transaction_type = "income"
+                    else:
+                        transaction_type = "expense"
 
                 descricao = clean_row.get("Detalhes", "").strip()
                 doc = clean_row.get("N° documento", "").strip()
