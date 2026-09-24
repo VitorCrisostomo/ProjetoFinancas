@@ -54,18 +54,16 @@ export default function FinancialDashboard() {
       const response = await fetch(`${API_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // Envia a chave 'email' exatamente como o backend está esperando agora!
+        
         body: JSON.stringify({ email, password }) 
       });
 
       if (response.ok) {
-        // 1. Extrai a resposta JSON que veio do Python
         const data = await response.json();
         
-        // 2. Salva o token mágico no navegador!
         localStorage.setItem('token', data.access_token); 
+        localStorage.setItem('userName', data.user.name);
         
-        // 3. Atualiza o estado (ISSO AQUI é o que te leva para a Home!)
         setIsAuthenticated(true); 
       } else {
         const errorData = await response.json();
@@ -170,14 +168,38 @@ const handleDeleteTransaction = async (id) => {
       });
 
       if (response.ok) {
-        alert('Conta criada com sucesso! Faça login para continuar.');
-        // Após cadastrar com sucesso, o usuário vai usar o formulário de login para entrar
+        // 👇 Removemos o alert daqui, pois a tela de verificação vai aparecer!
+        return true; 
       } else {
         const errorData = await response.json();
         alert(`Erro: ${errorData.message}`);
+        return false;
       }
     } catch (error) {
       console.error("Erro ao criar conta:", error);
+      return false;
+    }
+  };
+
+  const handleVerify = async ({ email, code }) => {
+    try {
+      const response = await fetch(`${API_URL}/verify_email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code })
+      });
+
+      if (response.ok) {
+        alert('E-mail verificado com sucesso! Agora você pode fazer login.');
+        return true; // Retorna true para a tela saber que deu certo
+      } else {
+        const errorData = await response.json();
+        alert(`Erro: ${errorData.message}`);
+        return false;
+      }
+    } catch (error) {
+      console.error("Erro ao verificar conta:", error);
+      return false;
     }
   };
 
@@ -204,7 +226,7 @@ const handleDeleteTransaction = async (id) => {
   if (!isAuthenticated) {
     return (
       <div className="app-container">
-        <LoginPage onLogin={handleLogin} onRegister={handleRegister} />
+        <LoginPage onLogin={handleLogin} onRegister={handleRegister} onVerify={handleVerify} />
       </div>
     );
   }
@@ -213,7 +235,7 @@ const handleDeleteTransaction = async (id) => {
     <div className="app-container">
       <Sidebar currentPage={currentPage} onPageChange={setCurrentPage} onLogout={handleLogout} />
       <div className="main-content">
-        <Header />
+        <Header userName={localStorage.getItem('userName')} />
         <div className="content-area">{renderPage()}</div>
       </div>
     </div>

@@ -9,6 +9,9 @@ const TransactionsPage = ({ transactions, onAddTransaction, onDeleteTransaction 
   const [modalOpen, setModalOpen] = useState(false);
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterType, setFilterType] = useState('all');
+  
+  // NOVO: Estado para mostrar se está carregando o arquivo
+  const [isUploading, setIsUploading] = useState(false); 
 
   const categories = ['all', ...new Set(transactions.map((t) => t.category))];
   const types = ['all', 'income', 'expense'];
@@ -24,13 +27,85 @@ const TransactionsPage = ({ transactions, onAddTransaction, onDeleteTransaction 
     setModalOpen(false);
   };
 
+  // NOVO: Função que captura o arquivo escolhido
+  const handleFileUpload = async (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Verifica se é realmente um CSV
+    if (!file.name.endsWith('.csv')) {
+      alert("Por favor, selecione apenas arquivos .csv");
+      return;
+    }
+
+    setIsUploading(true);
+
+    // Cria o "pacote" de formulário para enviar o arquivo
+    const formData = new FormData();
+    formData.append("file", file);
+
+    try {
+      const token = localStorage.getItem('token');
+      // Vamos criar essa rota no Python no próximo passo!
+      const response = await fetch('http://localhost:5000/transactions/import', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+          // NOTA: Ao enviar FormData (arquivos), NÃO colocamos o 'Content-Type'. 
+          // O próprio navegador cuida de colocar como 'multipart/form-data'.
+        },
+        body: formData
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        alert(`Sucesso! ${result.imported_count} transações foram importadas.`);
+        window.location.reload(); // Recarrega a página para puxar os dados novos
+      } else {
+        const errorData = await response.json();
+        alert(`Erro na importação: ${errorData.message}`);
+      }
+    } catch (error) {
+      console.error("Erro ao enviar arquivo:", error);
+      alert("Erro ao tentar conectar com o servidor.");
+    } finally {
+      setIsUploading(false);
+      // Limpa o input para permitir enviar o mesmo arquivo de novo, se precisar
+      event.target.value = null; 
+    }
+  };
+
   return (
     <div className="page-content">
       <div className="page-header">
-        <h1>Transações</h1>
-        <Button variant="primary" size="lg" onClick={() => setModalOpen(true)}>
-          ➕ Nova Transação
-        </Button>
+<h1>Transações</h1>
+        
+        {/* NOVO: Container para os botões ficarem lado a lado */}
+        <div style={{ display: 'flex', gap: '10px' }}>
+          
+          {/* Input de arquivo invisível */}
+          <input
+            type="file"
+            accept=".csv"
+            id="csv-upload"
+            style={{ display: 'none' }}
+            onChange={handleFileUpload}
+          />
+          
+          {/* Botão que "clica" no input invisível */}
+          <Button 
+            variant="secondary" 
+            size="lg" 
+            onClick={() => document.getElementById('csv-upload').click()}
+            disabled={isUploading}
+          >
+            {isUploading ? '⏳ Importando...' : '📄 Importar CSV'}
+          </Button>
+
+          <Button variant="primary" size="lg" onClick={() => setModalOpen(true)}>
+            ➕ Nova Transação
+          </Button>
+        </div>
       </div>
 
       {/* Filtros */}
