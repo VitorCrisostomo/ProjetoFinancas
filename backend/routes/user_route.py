@@ -1,9 +1,6 @@
 from flask import Blueprint, request, jsonify
-
 from services.user_service import UserService
-
 from exceptions import APIError
-
 from flask_jwt_extended import create_access_token
 
 user_routes = Blueprint("users", __name__)
