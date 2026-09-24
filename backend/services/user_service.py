@@ -15,38 +15,48 @@ class UserService:
         return self.repository.get_all()
 
     def authenticate_user(self, data):
-        # Agora ele aceita username, name OU email!
-        username = data.get("username") or data.get("name") or data.get("email")
+        # 1. Agora pegamos o email diretamente
+        email = data.get("email") 
         password = data.get("password")
 
-        if not username:
-            raise ValidationError("Username (ou Email) is required")
+        if not email:
+            raise ValidationError("Email is required")
 
         if not password:
             raise ValidationError("Password is required")
 
-        # Atenção: verifique se o seu repositório busca por email ou username.
-        # Se for email, talvez precise mudar de get_by_username para get_by_email
-        user = self.repository.get_by_username(username) 
+        user = self.repository.get_by_email(email) 
 
         if not user or not self.check_password(user, password):
-            raise ValidationError("Nome ou senha incorretos")
+            raise ValidationError("Email ou senha incorretos")
 
         return user
 
-    def create_user(self, username, password):
+    def create_user(self, data):
+        name = data.get("name")
+        email = data.get("email") # 1. Pega o email
+        password = data.get("password")
 
-        if not username:
-            raise ValidationError("UserName is required")
-
+        if not name:
+            raise ValidationError("Name is required")
+        
+        if not email:
+            raise ValidationError("Email is required")
+            
         if not password:
             raise ValidationError("Password is required")
 
-        password_hash = generate_password_hash(password)
+        existing_user = self.repository.get_by_email(email)
+        if existing_user:
+            raise ValidationError("Este email já está em uso")
 
+        hashed_password = generate_password_hash(password)
+
+        # 4. Cria o usuário com o novo campo email
         user = User(
-            username=username,
-            password=password_hash
+            name=name, 
+            email=email, 
+            password=hashed_password
         )
 
         return self.repository.create(user)

@@ -49,13 +49,13 @@ export default function FinancialDashboard() {
     }
   }, [isAuthenticated]);
 
-  const handleLogin = async (userData) => {
+  const handleLogin = async ({ email, password }) => { 
     try {
-      // Envia os dados (que já estão vindo como objeto do seu form) para a rota de login
       const response = await fetch(`${API_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData) 
+        // Envia a chave 'email' exatamente como o backend está esperando agora!
+        body: JSON.stringify({ email, password }) 
       });
 
       if (response.ok) {
@@ -161,6 +161,26 @@ const handleDeleteTransaction = async (id) => {
     }
   };
 
+  const handleRegister = async ({ name, email, password }) => {
+    try {
+      const response = await fetch(`${API_URL}/create_users`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, password })
+      });
+
+      if (response.ok) {
+        alert('Conta criada com sucesso! Faça login para continuar.');
+        // Após cadastrar com sucesso, o usuário vai usar o formulário de login para entrar
+      } else {
+        const errorData = await response.json();
+        alert(`Erro: ${errorData.message}`);
+      }
+    } catch (error) {
+      console.error("Erro ao criar conta:", error);
+    }
+  };
+
   const renderPage = () => {
     switch (currentPage) {
       case 'home':
@@ -184,7 +204,7 @@ const handleDeleteTransaction = async (id) => {
   if (!isAuthenticated) {
     return (
       <div className="app-container">
-        <LoginPage onLogin={handleLogin} />
+        <LoginPage onLogin={handleLogin} onRegister={handleRegister} />
       </div>
     );
   }

@@ -1,18 +1,33 @@
 import { useState } from "react";
-import Button from "../components/common/Button" 
+import Button from "../components/common/Button";
 
-const LoginPage = ({ onLogin }) => {
-  const [name, setName] = useState('');
+const LoginPage = ({ onLogin, onRegister }) => {
+  // Estado para controlar se a tela é de Login ou Cadastro
+  const [isRegistering, setIsRegistering] = useState(false);
+  
+  const [name, setName] = useState(''); // Só será usado no cadastro
+  const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (name && password) {
-      // O SEGREDO ESTÁ AQUI: Você precisa enviar name E password
-      onLogin({ name: name, password: password }); 
+    setError(''); // Limpa mensagens de erro antigas
+
+    if (isRegistering) {
+      // MODO CADASTRO
+      if (name && email && password) {
+        onRegister({ name, email, password }); 
+      } else {
+        setError('Por favor, preencha todos os campos.');
+      }
     } else {
-      setError('Por favor, preencha todos os campos.');
+      // MODO LOGIN
+      if (email && password) {
+        onLogin({ email, password }); 
+      } else {
+        setError('Por favor, preencha todos os campos.');
+      }
     }
   };
 
@@ -22,19 +37,35 @@ const LoginPage = ({ onLogin }) => {
         <div className="login-header">
           <div className="sidebar-logo">💰</div>
           <h1>FinanceHub</h1>
-          <p>Entre com sua conta para acessar o painel</p>
+          {/* O texto muda dependendo da tela */}
+          <p>{isRegistering ? 'Crie sua conta para começar' : 'Entre com sua conta para acessar o painel'}</p>
         </div>
 
         {error && <div className="login-error">{error}</div>}
 
         <form onSubmit={handleSubmit} className="login-form">
+          
+          {/* O campo Nome SÓ aparece se estivermos no modo "Criar Conta" */}
+          {isRegistering && (
+            <div className="form-group">
+              <label>Nome</label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Seu nome completo"
+                required={isRegistering}
+              />
+            </div>
+          )}
+
           <div className="form-group">
-            <label>Nome</label>
+            <label>E-mail</label>
             <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="Seu nome"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="seu@email.com"
               required
             />
           </div>
@@ -50,9 +81,24 @@ const LoginPage = ({ onLogin }) => {
             />
           </div>
 
-          <Button variant="primary" size="lg" type="submit" className="login-btn">
-            Entrar
-          </Button>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginTop: '20px' }}>
+            <Button variant="primary" size="lg" type="submit" className="login-btn">
+              {isRegistering ? 'Cadastrar' : 'Entrar'}
+            </Button>
+
+            {/* O Botão Secundário que alterna as telas */}
+            <Button 
+              variant="secondary" 
+              size="lg" 
+              type="button" 
+              onClick={() => {
+                setIsRegistering(!isRegistering); // Inverte a tela
+                setError(''); // Limpa qualquer erro que estava na tela
+              }}
+            >
+              {isRegistering ? 'Já tenho uma conta' : 'Criar nova conta'}
+            </Button>
+          </div>
         </form>
 
         <div className="login-footer">
