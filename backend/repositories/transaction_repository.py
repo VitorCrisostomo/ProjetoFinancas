@@ -1,3 +1,4 @@
+from ProjetoFinancas.backend.models.user import User
 from models.transaction import Transaction
 from config import db
 
@@ -12,6 +13,7 @@ class TransactionRepository:
 
     def get_by_id(self, contact_id):
         return Transaction.query.get(contact_id)
+
 
     def create(self, contact):
         db.session.add(contact)
