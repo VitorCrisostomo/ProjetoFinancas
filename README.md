@@ -1,12 +1,10 @@
-# 💰 App de Finanças
+Como instalar e rodar na sua máquina:
 
-## 🚀 Como instalar e rodar na sua máquina
-
-### Pré-requisitos
+Pré-requisitos:
 - [Python 3.x](https://www.python.org/)
 - [Node.js](https://nodejs.org/)
 
-### 🛠️ Instalação Automática
+Instalação Automática:
 
 **Se você usa Windows:**
 Dê dois cliques no arquivo `setup.bat` (ou rode `setup.bat` no terminal).
@@ -15,7 +13,7 @@ Dê dois cliques no arquivo `setup.bat` (ou rode `setup.bat` no terminal).
 Abra o terminal na pasta do projeto e rode:
 `make install`
 
-### 💻 Como rodar o projeto
+Como rodar o projeto:
 
 1. **Backend:** 
    Abra um terminal e ative o ambiente virtual:
