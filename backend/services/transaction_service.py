@@ -141,7 +141,6 @@ class TransactionService:
 
             for row_number, row in enumerate(csv_reader, start=2): 
                 
-                # 1. Limpa as chaves (cabeçalho)
                 clean_row = {}
                 for key, value in row.items():
                     if key is not None:
@@ -151,7 +150,6 @@ class TransactionService:
                 nome_lancamento = clean_row.get("Lançamento", "").strip()
                 raw_date = clean_row.get("Data", "").strip()
 
-                # 2. Ignora linhas de fechamento do Banco do Brasil
                 if (not nome_lancamento or 
                     nome_lancamento in ["Saldo Anterior", "Saldo do dia", "Saldo Atual"] or 
                     raw_date == "00/00/0000"):
@@ -160,13 +158,11 @@ class TransactionService:
                 if not raw_date:
                     raise ValidationError(f"A coluna 'Data' não foi encontrada ou está vazia na linha {row_number}.")
 
-                # 3. Converte a Data (AQUI ESTAVA FALTANDO!)
                 try:
                     parsed_date = datetime.strptime(raw_date, "%d/%m/%Y").strftime("%Y-%m-%d")
                 except ValueError:
                     raise ValidationError(f"Erro na linha {row_number}: A data '{raw_date}' não está no formato esperado (DD/MM/YYYY).")
 
-                # 4. Formata o Valor
                 raw_value = clean_row.get("Valor", "0")
                 clean_value = raw_value.replace(".", "").replace(",", ".")
                 try:
@@ -174,20 +170,17 @@ class TransactionService:
                 except ValueError:
                     float_value = 0.0
 
-                # 5. Descobre se é Entrada ou Saída
                 tipo_lancamento = clean_row.get("Tipo Lançamento", "").strip().lower()
                 if "entrada" in tipo_lancamento:
                     transaction_type = "income"
                 else:
                     transaction_type = "expense"
 
-                # 6. Prepara a descrição
                 descricao = clean_row.get("Detalhes", "").strip()
                 doc = clean_row.get("N° documento", "").strip()
                 if doc:
                     descricao = f"{descricao} (Doc: {doc})".strip()
 
-                # 7. Monta o pacote final e cria a transação
                 data = {
                     "user_id": user_id,
                     "date": parsed_date,
