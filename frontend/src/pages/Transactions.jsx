@@ -105,8 +105,8 @@ const TransactionsPage = ({ transactions, onAddTransaction, onDeleteTransaction 
                         {t.type === 'income' ? '📈 Receita' : '📉 Despesa'}
                       </span>
                     </td>
-                    <td className={`amount-cell ${t.type}`}>
-                      {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
+                    <td className={`value-cell ${t.type}`}>
+                      {t.type === 'income' ? '+' : '-'} {formatCurrency(t.value)}
                     </td>
                     <td className="actions-cell">
                       <button
