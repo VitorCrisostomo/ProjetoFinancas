@@ -59,3 +59,11 @@ def login():
         "access_token": access_token, # O frontend vai ler isso aqui!
         "user": user.to_json()
     }), 200
+
+@user_routes.route("/verify_email", methods=["POST"])
+def verify_email():
+    data = request.json
+    # Chama a função que acabamos de criar no Service
+    user = user_service.verify_account(data)
+    
+    return jsonify({"message": "E-mail verificado com sucesso! Agora você pode fazer login."}), 200

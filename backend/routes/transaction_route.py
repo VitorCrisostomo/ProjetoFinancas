@@ -24,6 +24,21 @@ def create_transaction():
     transaction = transaction_service.create_transaction(data)
     return jsonify(transaction.to_json()), 201
 
+@transaction_routes.route("/transactions/import", methods=["POST"])
+@jwt_required()
+def import_transactions():
+    if 'file' not in request.files:
+        return jsonify({"message": "Nenhum arquivo enviado no formulário."}), 400
+
+    file = request.files['file']
+    current_user_id = int(get_jwt_identity())
+    imported_count = transaction_service.import_csv(file, current_user_id)
+    
+    return jsonify({
+        "message": "Importação concluída com sucesso!", 
+        "imported_count": imported_count
+    }), 201
+
 @transaction_routes.route("/transactions", methods=["GET"])
 @jwt_required()
 def list_transactions():
