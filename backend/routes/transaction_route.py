@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from services.transaction_service import TransactionService
 from exceptions import APIError
 
@@ -15,28 +16,37 @@ def handle_api_error(error):
 
 
 @transaction_routes.route("/create_transactions", methods=["POST"])
+@jwt_required()
 def create_transaction():
-    data = request.json
+    data = request.get_json()
+    current_user_id = get_jwt_identity() 
+    data['user_id'] = int(current_user_id)
     transaction = transaction_service.create_transaction(data)
-    
     return jsonify(transaction.to_json()), 201
 
-
 @transaction_routes.route("/transactions", methods=["GET"])
-def get_transactions():
-    transactions = transaction_service.get_all_transactions()
+@jwt_required()
+def list_transactions():
 
-    return jsonify([transaction.to_json() for transaction in transactions])
+    current_user_id = get_jwt_identity()
+
+    user_id_int = int(current_user_id)
+
+    transactions = transaction_service.get_transactions_by_user_id(user_id_int)
+    
+    return jsonify([t.to_json() for t in transactions]), 200
 
 @transaction_routes.route("/update_transactions/<int:transaction_id>", methods=["PATCH"])
+@jwt_required()
 def update_transaction(transaction_id):
-    data = request.json
+    data = request.get_json()
     transaction = transaction_service.update_transaction(transaction_id, data)
 
     return jsonify(transaction.to_json()), 200
 
 
 @transaction_routes.route("/transactions/<int:transaction_id>",methods=["DELETE"])
+@jwt_required()
 def delete_transaction(transaction_id):
     transaction_service.delete_transaction(transaction_id)
 

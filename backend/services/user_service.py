@@ -15,28 +15,19 @@ class UserService:
         return self.repository.get_all()
 
     def authenticate_user(self, data):
-        # Tenta pegar "username" ou "name" (cobrindo como o React pode estar enviando)
-        username = data.get("username") or data.get("name")
+        # Agora ele aceita username, name OU email!
+        username = data.get("username") or data.get("name") or data.get("email")
         password = data.get("password")
 
         if not username:
-            raise ValidationError("Username is required")
+            raise ValidationError("Username (ou Email) is required")
 
         if not password:
             raise ValidationError("Password is required")
 
-        user = self.repository.get_by_username(username)
-
-        # --- MODO DETETIVE: Imprime no terminal do backend ---
-        print("\n--- DEBUG DE LOGIN ---", flush=True)
-        print(f"Nome recebido do React: '{username}'", flush=True)
-        print(f"Usuário encontrado no banco de dados? {'SIM' if user else 'NÃO'}", flush=True)
-        if user:
-            print(f"Hash salvo no banco: {user.password}", flush=True)
-            senha_ok = self.check_password(user, password)
-            print(f"A senha digitada bate com o hash? {'SIM' if senha_ok else 'NÃO'}", flush=True)
-        print("----------------------\n", flush=True)
-        # ----------------------------------------------------
+        # Atenção: verifique se o seu repositório busca por email ou username.
+        # Se for email, talvez precise mudar de get_by_username para get_by_email
+        user = self.repository.get_by_username(username) 
 
         if not user or not self.check_password(user, password):
             raise ValidationError("Nome ou senha incorretos")

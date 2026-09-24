@@ -4,6 +4,8 @@ from services.user_service import UserService
 
 from exceptions import APIError
 
+from flask_jwt_extended import create_access_token
+
 user_routes = Blueprint("users", __name__)
 
 user_service = UserService()
@@ -39,23 +41,24 @@ def delete_user(user_id):
 
         return jsonify({"message": "User deleted successfully"}), 200
 
+from flask import request, jsonify
+
+from flask import request, jsonify
+from flask_jwt_extended import create_access_token # 1. Adicione este import no topo do arquivo
+
 @user_routes.route("/login", methods=["POST"])
 def login():
-    # Isso vai imprimir imediatamente o que chegou do React
-    print("\n=== REQUISIÇÃO RECEBIDA ===", flush=True)
-    print("Cabeçalhos:", request.headers.get("Content-Type"), flush=True)
-    print("Dados JSON:", request.json, flush=True)
-    print("===========================\n", flush=True)
-
     data = request.json
     
-    # Se o data vier vazio, já sabemos que o React não enviou certo
     if not data:
         return jsonify({"message": "Nenhum dado recebido"}), 400
 
     user = user_service.authenticate_user(data)
 
+    access_token = create_access_token(identity=str(user.id))
+
     return jsonify({
         "message": "Login realizado com sucesso!",
+        "access_token": access_token, # O frontend vai ler isso aqui!
         "user": user.to_json()
     }), 200
