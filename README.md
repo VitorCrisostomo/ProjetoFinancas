@@ -15,12 +15,17 @@ Abra o terminal na pasta do projeto e rode:
 
 Como rodar o projeto:
 
-1. **Backend:** 
+1. **Criar Usuário**
+   No terminal, no backend, execute: `python createuser.py`
+   
+   Siga o passo a passo no terminal
+
+2. **Backend:** 
    Abra um terminal e ative o ambiente virtual:
    - Windows: `venv\Scripts\activate`
    - Mac/Linux: `source venv/bin/activate`
-   - Em seguida rode: `python app.py` (ou o nome do seu arquivo principal)
+   - Em seguida rode: `python main.py`
 
-2. **Frontend:**
+3. **Frontend:**
    Abra outro terminal (na pasta do frontend) e rode:
    `npm run dev`
