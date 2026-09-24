@@ -5,11 +5,11 @@ import { categoryIcons, categoryColors } from "../utils/category";
 const OverviewPage = ({ transactions }) => {
   const totalIncome = transactions
     .filter((t) => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + t.value, 0); // Modificado para t.value
 
   const totalExpense = transactions
     .filter((t) => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + t.value, 0); // Modificado para t.value
 
   const balance = totalIncome - totalExpense;
 
@@ -18,7 +18,8 @@ const OverviewPage = ({ transactions }) => {
   transactions
     .filter((t) => t.type === 'expense')
     .forEach((t) => {
-      expensesByCategory[t.category] = (expensesByCategory[t.category] || 0) + t.amount;
+      // Modificado para t.value
+      expensesByCategory[t.category] = (expensesByCategory[t.category] || 0) + t.value; 
     });
 
   const maxExpense = Math.max(...Object.values(expensesByCategory), 1);
@@ -93,7 +94,7 @@ const OverviewPage = ({ transactions }) => {
         <div className="category-breakdown">
           {Object.entries(expensesByCategory)
             .sort((a, b) => b[1] - a[1])
-            .map(([category, amount]) => (
+            .map(([category, value]) => (
               <div key={category} className="category-item">
                 <div className="category-info">
                   <span className="category-icon">{categoryIcons[category] || '💸'}</span>
@@ -103,12 +104,12 @@ const OverviewPage = ({ transactions }) => {
                   <div
                     className="category-bar"
                     style={{
-                      width: `${(amount / maxExpense) * 100}%`,
+                      width: `${(value / maxExpense) * 100}%`,
                       backgroundColor: categoryColors[category] || '#6b7280',
                     }}
                   />
                 </div>
-                <span className="category-value">{formatCurrency(amount)}</span>
+                <span className="category-value">{formatCurrency(value)}</span>
               </div>
             ))}
         </div>

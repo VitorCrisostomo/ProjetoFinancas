@@ -7,7 +7,6 @@ import Sidebar from "./components/Sidebar";
 import Header from "./components/Header";
 import "./styles/App.css";
 
-// Defina a URL base do seu backend (ajuste a porta, Flask costuma ser 5000, FastAPI 8000)
 const API_URL = "http://localhost:5000"; 
 
 export default function FinancialDashboard() {
@@ -16,42 +15,61 @@ export default function FinancialDashboard() {
   // Agora começa vazio! Os dados virão do banco.
   const [transactions, setTransactions] = useState([]); 
 
-  // --- 1. BUSCAR DADOS (GET) ---
-  // Esse useEffect roda automaticamente toda vez que 'isAuthenticated' muda para true
   useEffect(() => {
     if (isAuthenticated) {
       const fetchTransactions = async () => {
         try {
-          const response = await fetch(`${API_URL}/transactions`);
+          // 1. Pega o token salvo
+          const token = localStorage.getItem('token');
+
+          // Se não tiver token, nem tenta buscar (o usuário não tá logado ainda)
+          if (!token) return;
+        
+          const response = await fetch(`${API_URL}/transactions`, {
+            method: 'GET', // Opcional colocar o GET, mas é bom para clareza
+            headers: {
+              'Content-Type': 'application/json',
+              // 2. Mostra o crachá para o servidor!
+              'Authorization': `Bearer ${token}` 
+            }
+          });
+        
           if (response.ok) {
             const data = await response.json();
-            setTransactions(data);
+            setTransactions(data); // Salva as transações do usuário logado!
           } else {
             console.error("Falha ao carregar transações");
           }
         } catch (error) {
-          console.error("Erro de conexão com a API:", error);
+          console.error("Erro:", error);
         }
-      };
+  };
       
       fetchTransactions();
     }
   }, [isAuthenticated]);
 
-  // --- 2. LOGIN (POST) ---
   const handleLogin = async (userData) => {
     try {
-      // Envia nome e senha para a rota de login no backend
+      // Envia os dados (que já estão vindo como objeto do seu form) para a rota de login
       const response = await fetch(`${API_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(userData)
+        body: JSON.stringify(userData) 
       });
 
       if (response.ok) {
-        setIsAuthenticated(true);
+        // 1. Extrai a resposta JSON que veio do Python
+        const data = await response.json();
+        
+        // 2. Salva o token mágico no navegador!
+        localStorage.setItem('token', data.access_token); 
+        
+        // 3. Atualiza o estado (ISSO AQUI é o que te leva para a Home!)
+        setIsAuthenticated(true); 
       } else {
-        alert("Nome ou senha incorretos!");
+        const errorData = await response.json();
+        alert(`Erro: ${errorData.message || errorData.error || "Nome ou senha incorretos!"}`);
       }
     } catch (error) {
       console.error("Erro ao fazer login:", error);
@@ -59,25 +77,39 @@ export default function FinancialDashboard() {
     }
   };
 
-  const handleLogout = () => {
+const handleLogout = () => {
+    // 1. Remove o token JWT do navegador (Destrói o "crachá")
+    localStorage.removeItem('token'); 
+
+    // 2. Limpa os estados do React
     setIsAuthenticated(false);
     setCurrentPage('home');
     setTransactions([]); // Limpa as transações ao deslogar
   };
 
   // --- 3. ADICIONAR (POST) ---
-  const handleAddTransaction = async (newTransaction) => {
+const handleAddTransaction = async (newTransaction) => {
+    // 1. Pegue o token onde você o salvou no momento do login (geralmente localStorage)
+    // O nome da chave ('token', 'access_token') depende de como você salvou no login
+    const token = localStorage.getItem('token'); 
+
     try {
-      const response = await fetch(`${API_URL}/transactions`, {
+      const response = await fetch(`${API_URL}/create_transactions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          // 2. Adicione o token com a palavra "Bearer " antes dele
+          'Authorization': `Bearer ${token}` 
+        },
         body: JSON.stringify(newTransaction)
       });
 
       if (response.ok) {
         const savedTransaction = await response.json();
-        // Adiciona a transação que voltou do banco (agora com um ID real do banco)
         setTransactions([...transactions, savedTransaction]);
+      } else {
+        const errorData = await response.text(); 
+        console.error("Erro do servidor:", errorData);
       }
     } catch (error) {
       console.error("Erro ao adicionar:", error);
@@ -85,16 +117,23 @@ export default function FinancialDashboard() {
   };
 
   // --- 4. DELETAR (DELETE) ---
-  const handleDeleteTransaction = async (id) => {
+const handleDeleteTransaction = async (id) => {
     if (window.confirm('Tem certeza que deseja deletar esta transação?')) {
       try {
+        const token = localStorage.getItem('token');
+
         const response = await fetch(`${API_URL}/transactions/${id}`, {
           method: 'DELETE',
+          headers: { 
+            'Authorization': `Bearer ${token}` 
+          }
         });
 
         if (response.ok) {
-          // Só remove da tela se o backend confirmar que deletou
           setTransactions(transactions.filter((t) => t.id !== id));
+        } else {
+          const errorData = await response.text();
+          console.error("Erro do servidor ao deletar:", errorData);
         }
       } catch (error) {
         console.error("Erro ao deletar:", error);

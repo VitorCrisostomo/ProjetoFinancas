@@ -5,11 +5,11 @@ import { categoryIcons } from "../utils/category";
 const HomePage = ({ transactions }) => {
   const totalIncome = transactions
     .filter((t) => t.type === 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + t.value, 0);
 
   const totalExpense = transactions
     .filter((t) => t.type === 'expense')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + t.value, 0);
 
   const balance = totalIncome - totalExpense;
   const recentTransactions = transactions.slice(-5).reverse();
@@ -68,8 +68,8 @@ const HomePage = ({ transactions }) => {
                   <span className="transaction-category">{t.category}</span>
                 </div>
               </div>
-              <span className={`transaction-amount ${t.type}`}>
-                {t.type === 'income' ? '+' : '-'} {formatCurrency(t.amount)}
+              <span className={`transaction-value ${t.type}`}>
+                {t.type === 'income' ? '+' : '-'} {formatCurrency(t.value)}
               </span>
             </div>
           ))}

@@ -6,22 +6,22 @@ const TransactionModal = ({ isOpen, onClose, onSave }) => {
   const [formData, setFormData] = useState({
     name: '',
     category: 'Alimentação',
-    amount: '',
+    value: '',
     type: 'expense',
     date: new Date().toISOString().split('T')[0],
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (formData.name && formData.amount) {
+    if (formData.name && formData.value) {
       onSave({
         ...formData,
-        amount: parseFloat(formData.amount),
+        value: parseFloat(formData.value),
       });
       setFormData({
         name: '',
         category: 'Alimentação',
-        amount: '',
+        value: '',
         type: 'expense',
         date: new Date().toISOString().split('T')[0],
       });
@@ -67,8 +67,8 @@ const TransactionModal = ({ isOpen, onClose, onSave }) => {
               <input
                 type="number"
                 step="0.01"
-                value={formData.amount}
-                onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+                value={formData.value}
+                onChange={(e) => setFormData({ ...formData, value: e.target.value })}
                 placeholder="0.00"
                 required
               />
