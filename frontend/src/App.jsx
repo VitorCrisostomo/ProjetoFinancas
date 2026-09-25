@@ -140,11 +140,16 @@ const handleDeleteTransaction = async (id) => {
   };
 
   // --- 5. EDITAR (PUT / PATCH) ---
-  const handleEditTransaction = async (id, data) => {
+  const handleUpdateTransaction = async (id, data) => {
     try {
-      const response = await fetch(`${API_URL}/transactions/${id}`, {
-        method: 'PUT', // ou 'PATCH', dependendo de como você criar no backend
-        headers: { 'Content-Type': 'application/json' },
+      const token = localStorage.getItem('token'); // 👈 Pegamos o token aqui
+
+      const response = await fetch(`${API_URL}/update_transactions/${id}`, {
+        method: 'PATCH', // ou 'PATCH', se você configurou assim no backend
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` // 👈 Enviamos o token pro Python deixar passar!
+        },
         body: JSON.stringify(data)
       });
 
@@ -153,6 +158,9 @@ const handleDeleteTransaction = async (id) => {
         setTransactions(
           transactions.map((t) => (t.id === id ? updatedTransaction : t))
         );
+      } else {
+        const errorData = await response.text();
+        console.error("Erro do servidor ao editar:", errorData);
       }
     } catch (error) {
       console.error("Erro ao editar:", error);
@@ -168,7 +176,6 @@ const handleDeleteTransaction = async (id) => {
       });
 
       if (response.ok) {
-        // 👇 Removemos o alert daqui, pois a tela de verificação vai aparecer!
         return true; 
       } else {
         const errorData = await response.json();
@@ -215,7 +222,7 @@ const handleDeleteTransaction = async (id) => {
             transactions={transactions}
             onAddTransaction={handleAddTransaction}
             onDeleteTransaction={handleDeleteTransaction}
-            onEditTransaction={handleEditTransaction}
+            onUpdateTransaction={handleUpdateTransaction}
           />
         );
       default:
