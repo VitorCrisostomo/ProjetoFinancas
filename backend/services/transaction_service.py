@@ -65,53 +65,42 @@ class TransactionService:
         return self.repository.create(transaction)
     
     def update_transaction(self, transaction_id, data):
-        value = data.get("value")
-        date_str = data.get("date") # 1. Pega a data como string
-        name = data.get("name")
-        category = data.get("category")
-        description = data.get("description")
-        user_id = data.get("user_id")
-        
-        type_trans = data.get("type")
-
-        if not value:
-            raise ValidationError("Value is required")
-
-        if not date_str:
-            raise ValidationError("Date is required")
-
-        try:
-            date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
-        except ValueError:
-            raise ValidationError("Formato de data inválido. Use YYYY-MM-DD")
-
-        if not name:
-            raise ValidationError("Name is required")
-
-        if not user_id:
-            raise ValidationError("UserId is required")
-
-        if not category:
-            raise ValidationError("Category is required")
-
-        if not type_trans:
-            type_trans = "expense"
-
-        if not description:
-            description = ""
-
         transaction = self.repository.get_by_id(transaction_id)
 
         if not transaction:
             raise NotFoundError("Transaction not found")
 
-        transaction.value = value
-        transaction.date = date_obj
-        transaction.name = name
-        transaction.category = category
-        transaction.description = description
-        transaction.user_id = user_id
-        transaction.type = type_trans 
+        if "value" in data:
+            if not data["value"]:
+                raise ValidationError("Value is required")
+            transaction.value = data["value"]
+
+        if "date" in data:
+            if not data["date"]:
+                raise ValidationError("Date is required")
+            try:
+                transaction.date = datetime.strptime(data["date"], "%Y-%m-%d").date()
+            except ValueError:
+                raise ValidationError("Formato de data inválido. Use YYYY-MM-DD")
+
+        if "name" in data:
+            if not data["name"]:
+                raise ValidationError("Name is required")
+            transaction.name = data["name"]
+
+        if "category" in data:
+            if not data["category"]:
+                raise ValidationError("Category is required")
+            transaction.category = data["category"]
+
+        if "description" in data:
+            transaction.description = data["description"]
+
+        if "type" in data:
+            if not data["type"]:
+                transaction.type = "expense"
+            else:
+                transaction.type = data["type"]
 
         return self.repository.update(transaction)
 

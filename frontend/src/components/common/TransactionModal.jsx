@@ -1,15 +1,33 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { categoryIcons } from "../../utils/category";
 import Button from "./Button";
 
-const TransactionModal = ({ isOpen, onClose, onSave }) => {
-  const [formData, setFormData] = useState({
+const TransactionModal = ({ isOpen, onClose, onSave, transactionToEdit }) => {
+  const defaultState = {
     name: '',
     category: 'Alimentação',
     value: '',
     type: 'expense',
     date: new Date().toISOString().split('T')[0],
-  });
+  };
+
+  const [formData, setFormData] = useState(defaultState);
+
+  useEffect(() => {
+    if (isOpen) {
+      if (transactionToEdit) {
+        setFormData({
+          name: transactionToEdit.name,
+          category: transactionToEdit.category,
+          value: transactionToEdit.value,
+          type: transactionToEdit.type,
+          date: typeof transactionToEdit.date === 'string' ? transactionToEdit.date.split('T')[0] : transactionToEdit.date,
+        });
+      } else {
+        setFormData(defaultState);
+      }
+    }
+  }, [isOpen, transactionToEdit]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -17,14 +35,9 @@ const TransactionModal = ({ isOpen, onClose, onSave }) => {
       onSave({
         ...formData,
         value: parseFloat(formData.value),
-      });
-      setFormData({
-        name: '',
-        category: 'Alimentação',
-        value: '',
-        type: 'expense',
-        date: new Date().toISOString().split('T')[0],
-      });
+      }, transactionToEdit?.id); 
+      
+      setFormData(defaultState);
     }
   };
 
@@ -34,7 +47,7 @@ const TransactionModal = ({ isOpen, onClose, onSave }) => {
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>Nova Transação</h2>
+          <h2>{transactionToEdit ? 'Editar Transação' : 'Nova Transação'}</h2>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
 
@@ -106,7 +119,7 @@ const TransactionModal = ({ isOpen, onClose, onSave }) => {
               Cancelar
             </Button>
             <Button variant="primary" type="submit">
-              Salvar Transação
+              {transactionToEdit ? 'Atualizar' : 'Salvar'}
             </Button>
           </div>
         </form>
