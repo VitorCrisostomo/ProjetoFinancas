@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import AccountsPage from './pages/Accounts.jsx';
 import LoginPage from "./pages/Login.jsx";
 import HomePage from "./pages/Home.jsx";
 import OverviewPage from "./pages/Overview.jsx";
@@ -12,7 +13,7 @@ const API_URL = "http://localhost:5000";
 export default function FinancialDashboard() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [currentPage, setCurrentPage] = useState('home');
-  // Agora começa vazio! Os dados virão do banco.
+  const [accounts, setAccounts] = useState([]);
   const [transactions, setTransactions] = useState([]); 
 
   useEffect(() => {
@@ -210,6 +211,18 @@ const handleDeleteTransaction = async (id) => {
     }
   };
 
+  const handleSyncAccount = (newAccountData) => {
+    // No futuro, isso fará um POST para /accounts/sync enviando o itemId
+    setAccounts((prev) => [...prev, newAccountData]);
+  };
+
+  const handleDeleteAccount = (accountId) => {
+    // No futuro, fará um DELETE para /accounts/<id>
+    if (window.confirm("Tem certeza que deseja desconectar esta conta? As transações vinculadas serão mantidas.")) {
+      setAccounts((prev) => prev.filter(acc => acc.id !== accountId));
+    }
+  };
+
   const renderPage = () => {
     switch (currentPage) {
       case 'home':
@@ -223,6 +236,14 @@ const handleDeleteTransaction = async (id) => {
             onAddTransaction={handleAddTransaction}
             onDeleteTransaction={handleDeleteTransaction}
             onUpdateTransaction={handleUpdateTransaction}
+          />
+        );
+      case 'accounts': // 👈 NOVA ROTA DO FRONTEND
+        return (
+          <AccountsPage 
+            accounts={accounts}
+            onSyncAccount={handleSyncAccount}
+            onDeleteAccount={handleDeleteAccount}
           />
         );
       default:
