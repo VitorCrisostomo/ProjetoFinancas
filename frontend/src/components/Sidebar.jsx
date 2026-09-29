@@ -7,6 +7,7 @@ const Sidebar = ({ currentPage, onPageChange, onLogout }) => {
     { id: 'home', label: 'Início', icon: '🏠' },
     { id: 'overview', label: 'Visão geral', icon: '📊' },
     { id: 'transactions', label: 'Transações', icon: '📋' },
+    { id: 'accounts', label: 'Contas', icon: '🏦' }, 
   ];
 
   return (

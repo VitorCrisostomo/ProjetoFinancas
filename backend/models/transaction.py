@@ -2,6 +2,8 @@ from config import db
 
 
 class Transaction(db.Model):
+    __tablename__ = 'transaction'
+
     id = db.Column(db.Integer, primary_key=True)
     value = db.Column(db.Integer, nullable=False)
     date = db.Column(db.DateTime, nullable=False)
