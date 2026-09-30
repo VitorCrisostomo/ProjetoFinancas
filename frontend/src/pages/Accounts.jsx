@@ -34,6 +34,15 @@ const AccountsPage = ({ accounts, onSyncAccount, onDeleteAccount }) => {
         result.accounts.forEach(acc => {
           onSyncAccount(acc);
         });
+
+        console.log("Contas sincronizadas! Buscando transações...");
+        await fetch('http://localhost:5000/pluggy/transactions/sync', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}` 
+          }
+        });
         
         alert(`Sucesso! ${result.accounts.length} conta(s) sincronizada(s).`);
       } else {

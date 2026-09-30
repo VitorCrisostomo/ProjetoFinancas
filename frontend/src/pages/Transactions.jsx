@@ -12,6 +12,7 @@ const TransactionsPage = ({ transactions, onAddTransaction, onDeleteTransaction,
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterType, setFilterType] = useState('all');
   const [isUploading, setIsUploading] = useState(false); 
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const categories = ['all', ...new Set(transactions.map((t) => t.category))];
   const types = ['all', 'income', 'expense'];
@@ -31,16 +32,16 @@ const TransactionsPage = ({ transactions, onAddTransaction, onDeleteTransaction,
       onAddTransaction(data);
     }
     setModalOpen(false);
-    setTransactionToEdit(null); // Limpa após salvar
+    setTransactionToEdit(null); 
   };
 
   const handleOpenNewModal = () => {
-    setTransactionToEdit(null); // Garante que abre vazio
+    setTransactionToEdit(null);
     setModalOpen(true);
   };
 
   const handleOpenEditModal = (transaction) => {
-    setTransactionToEdit(transaction); // Garante que abre preenchido
+    setTransactionToEdit(transaction);
     setModalOpen(true);
   };
 
@@ -82,6 +83,44 @@ const TransactionsPage = ({ transactions, onAddTransaction, onDeleteTransaction,
     }
   };
 
+  const handleSyncTransactions = async () => {
+  setIsSyncing(true);
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch('http://localhost:5000/pluggy/transactions/sync', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}` 
+      }
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      alert(result.message);
+      
+      // Opção A: Se você tiver uma função para buscar as transações da API novamente
+      if (typeof fetchTransactions === 'function') {
+        fetchTransactions();
+      }
+      
+      // Opção B: Ou se preferir atualizar o estado local diretamente com o retorno:
+      // if (typeof setTransactions === 'function') {
+      //   setTransactions(result.transactions);
+      // }
+
+    } else {
+      const errorData = await response.json();
+      alert(`Erro ao sincronizar transações: ${errorData.message}`);
+    }
+  } catch (error) {
+    console.error("Erro na requisição de sincronização:", error);
+    alert("Falha de conexão com o servidor.");
+  } finally {
+    setIsSyncing(false);
+  }
+};
+
   return (
     <div className="page-content">
       <div className="page-header">
@@ -103,6 +142,16 @@ const TransactionsPage = ({ transactions, onAddTransaction, onDeleteTransaction,
             disabled={isUploading}
           >
             {isUploading ? '⏳ Importando...' : '📄 Importar CSV'}
+          </Button>
+
+          {/* 👇 Botão de Sincronização via Open Finance (Pluggy) */}
+          <Button 
+            variant="secondary" 
+            size="lg" 
+            onClick={handleSyncTransactions}
+            disabled={isSyncing}
+          >
+            {isSyncing ? '⏳ Sincronizando...' : '🔄 Sincronizar Bancos'}
           </Button>
 
           <Button variant="primary" size="lg" onClick={handleOpenNewModal}>

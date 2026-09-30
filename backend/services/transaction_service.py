@@ -1,12 +1,13 @@
 import csv
 import io
 
-
+from config import db
 from datetime import datetime
 from models.transaction import Transaction
 from exceptions.api_errors import NotFoundError, ValidationError
 from repositories.transaction_repository import TransactionRepository
 from datetime import datetime
+from models.account import Account
 
 class TransactionService:
 
@@ -213,4 +214,87 @@ class TransactionService:
             raise NotFoundError("Transaction not found")
 
         self.repository.delete(transaction)
-    
+
+    def sync_transaction(self, tx_data, internal_account_id, user_id):
+        """Salva a transação garantindo valores absolutos, tipagem correta para cartões e idempotência."""
+        pluggy_tx_id = tx_data.get("id")
+        
+        if not pluggy_tx_id:
+            return None
+
+        # 1. Verifica se a transação já existe
+        existing_tx = Transaction.query.filter_by(external_id=pluggy_tx_id).first()
+        
+        # 2. Tratamento seguro da Data
+        raw_date = tx_data.get("date")
+        parsed_date = datetime.utcnow()
+        if raw_date:
+            try:
+                parsed_date = datetime.fromisoformat(raw_date.replace("Z", "+00:00"))
+            except Exception:
+                pass
+
+        # 3. Identifica se a conta interna é um Cartão de Crédito
+        account = Account.query.get(internal_account_id)
+        is_credit_card = account and account.type and account.type.upper() == "CREDIT"
+
+        pluggy_type = tx_data.get("type", "DEBIT").upper()
+        amount_raw = float(tx_data.get("amount", 0.0))
+        
+        description_lower = (tx_data.get("description", "") or "").lower()
+        merchant_field = tx_data.get("merchant")
+        merchant_name = ""
+        if merchant_field and isinstance(merchant_field, dict):
+            merchant_name = (merchant_field.get("name", "") or "").lower()
+        full_text = f"{description_lower} {merchant_name}"
+
+        # Termos que indicam entrada/reembolso mesmo em cartão de crédito
+        is_payment_or_refund = any(term in full_text for term in ["pagamento", "fatura", "estorno", "cashback", "pix recebido", "transferência recebida"])
+
+        # 4. Regra inteligente de Tipagem (Receita vs Despesa)
+        if is_credit_card:
+            # Em cartão de crédito, o normal é ser despesa, a menos que seja pagamento de fatura ou estorno
+            if is_payment_or_refund:
+                app_type = "income"
+            else:
+                app_type = "expense"
+        else:
+            # Conta corrente / poupança tradicional
+            if pluggy_type == "CREDIT" or amount_raw > 0:
+                app_type = "income"
+            else:
+                app_type = "expense"
+
+        # 5. Valor sempre positivo no banco (o tipo 'expense' ou 'income' já define se entra ou sai)
+        amount = abs(amount_raw)
+        
+        name = tx_data.get("description") or tx_data.get("merchant", {}).get("name", "Transação Pluggy")
+        category = tx_data.get("category", "Outros") or "Outros"
+        description = tx_data.get("observation", "")
+
+        if existing_tx:
+            existing_tx.value = amount
+            existing_tx.date = parsed_date
+            existing_tx.name = name
+            existing_tx.category = category
+            existing_tx.description = description
+            existing_tx.type = app_type
+            db.session.commit()
+            return existing_tx
+        
+        # Cria nova transação
+        new_tx = Transaction(
+            external_id=pluggy_tx_id,
+            account_id=internal_account_id,
+            user_id=user_id,
+            value=amount,
+            date=parsed_date,
+            name=name,
+            category=category,
+            description=description,
+            type=app_type
+        )
+        
+        db.session.add(new_tx)
+        db.session.commit()
+        return new_tx

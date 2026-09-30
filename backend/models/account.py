@@ -1,13 +1,13 @@
 from config import db 
 
 class Account(db.Model):
-    __tablename__ = 'account'
+    __tablename__ = 'accounts'
 
     # Identificador único (UUID) fornecido pela API externa
     id = db.Column(db.String(36), primary_key=True)
     
     # Relação com o seu usuário interno do FinanceHub
-    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
 
     # Campos principais e de classificação
     type = db.Column(db.String(50), nullable=False)         # Ex: BANK, CREDIT
