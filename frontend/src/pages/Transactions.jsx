@@ -1,28 +1,86 @@
 import { useState } from "react";
 import { categoryIcons } from "../utils/category.jsx";
-import formatCurrency from "../utils/currency.jsx";
-import formatDate from "../utils/date.jsx";
 import Button from "../components/common/Button.jsx";
 import TransactionModal from "../components/common/TransactionModal.jsx";
-import EditableCategory from "../components/common/EditableCategory.jsx";
+import TransactionRow from "../components/common/TransactionRow.jsx";
+import formatCurrency from "../utils/currency.jsx";
 
-const TransactionsPage = ({ transactions, onAddTransaction, onDeleteTransaction, onUpdateTransaction }) => {
+const TransactionsPage = ({ 
+  transactions, 
+  onAddTransaction, 
+  onDeleteTransaction, 
+  onUpdateTransaction,
+  onAssociateTransactions 
+}) => {
   const [modalOpen, setModalOpen] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState(null);
   const [filterCategory, setFilterCategory] = useState('all');
   const [filterType, setFilterType] = useState('all');
   const [isUploading, setIsUploading] = useState(false); 
+  const [selectedIds, setSelectedIds] = useState([]);
 
   const categories = ['all', ...new Set(transactions.map((t) => t.category))];
   const types = ['all', 'income', 'expense'];
-  
   const allAvailableCategories = Object.keys(categoryIcons);
 
+  // Filtragem
   const filteredTransactions = transactions.filter((t) => {
     const categoryMatch = filterCategory === 'all' || t.category === filterCategory;
     const typeMatch = filterType === 'all' || t.type === filterType;
     return categoryMatch && typeMatch;
   });
+
+  const displayedTransactions = filteredTransactions.slice(0, 50);
+
+  const handleSelectTransaction = (id) => {
+    if (selectedIds.includes(id)) {
+      setSelectedIds(selectedIds.filter((item) => item !== id));
+    } else {
+      if (selectedIds.length >= 2) {
+        alert("Você só pode selecionar até 2 transações para associar de cada vez.");
+        return;
+      }
+      setSelectedIds([...selectedIds, id]);
+    }
+  };
+
+  const handleExecuteAssociation = () => {
+    if (selectedIds.length !== 2) return;
+
+    const t1 = transactions.find((t) => t.id === selectedIds[0]);
+    const t2 = transactions.find((t) => t.id === selectedIds[1]);
+
+    if (!t1 || !t2) return;
+
+    const val1 = t1.type === 'income' ? t1.value : -t1.value;
+    const val2 = t2.type === 'income' ? t2.value : -t2.value;
+    const resultValue = val1 + val2;
+
+    const newType = resultValue >= 0 ? 'income' : 'expense';
+    const finalValue = Math.abs(resultValue);
+
+    const formattedDate = typeof t1.date === 'string' ? t1.date.split('T')[0] : t1.date;
+
+    const confirmMessage = `Deseja associar as transações:\n- "${t1.name}" (${formatCurrency(t1.value)})\n- "${t2.name}" (${formatCurrency(t2.value)})\n\nResultado final: ${newType === 'income' ? 'Receita' : 'Despesa'} de ${formatCurrency(finalValue)}?`;
+
+    if (window.confirm(confirmMessage)) {
+      const updatedData = {
+        name: `${t1.name} / ${t2.name}`,
+        value: parseFloat(finalValue),
+        type: newType,
+        category: t1.category,
+        date: formattedDate
+      };
+
+      if (onAssociateTransactions) {
+        onAssociateTransactions(t1.id, t2.id, updatedData);
+      } else {
+        onUpdateTransaction(t1.id, updatedData);
+        onDeleteTransaction(t2.id);
+      }
+      setSelectedIds([]);
+    }
+  };
 
   const handleSave = (data, id) => {
     if (id) {
@@ -31,17 +89,7 @@ const TransactionsPage = ({ transactions, onAddTransaction, onDeleteTransaction,
       onAddTransaction(data);
     }
     setModalOpen(false);
-    setTransactionToEdit(null); // Limpa após salvar
-  };
-
-  const handleOpenNewModal = () => {
-    setTransactionToEdit(null); // Garante que abre vazio
-    setModalOpen(true);
-  };
-
-  const handleOpenEditModal = (transaction) => {
-    setTransactionToEdit(transaction); // Garante que abre preenchido
-    setModalOpen(true);
+    setTransactionToEdit(null);
   };
 
   const handleFileUpload = async (event) => {
@@ -85,9 +133,18 @@ const TransactionsPage = ({ transactions, onAddTransaction, onDeleteTransaction,
   return (
     <div className="page-content">
       <div className="page-header">
-        <h1>Transações</h1>
+        <div>
+          <h1>Transações</h1>
+          <p>Gerencie e filtre suas receitas e despesas</p>
+        </div>
         
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          {selectedIds.length === 2 && (
+            <Button variant="secondary" size="lg" onClick={handleExecuteAssociation}>
+              🔗 Associar (2)
+            </Button>
+          )}
+
           <input
             type="file"
             accept=".csv"
@@ -105,7 +162,7 @@ const TransactionsPage = ({ transactions, onAddTransaction, onDeleteTransaction,
             {isUploading ? '⏳ Importando...' : '📄 Importar CSV'}
           </Button>
 
-          <Button variant="primary" size="lg" onClick={handleOpenNewModal}>
+          <Button variant="primary" size="lg" onClick={() => { setTransactionToEdit(null); setModalOpen(true); }}>
             ➕ Nova Transação
           </Button>
         </div>
@@ -145,74 +202,43 @@ const TransactionsPage = ({ transactions, onAddTransaction, onDeleteTransaction,
 
       <div className="section">
         <div className="transactions-count">
-          {filteredTransactions.length} transação(ões) encontrada(s)
+          Exibindo {displayedTransactions.length} de {filteredTransactions.length} transações encontradas
+          {filteredTransactions.length > 50 && ' (limite de 50 exibido)'}
         </div>
 
         <div className="transactions-table-container">
           <table className="transactions-table">
             <thead>
               <tr>
-                <th>Data</th>
-                <th>Descrição</th>
-                <th>Categoria</th>
-                <th>Tipo</th>
-                <th>Valor</th>
-                <th>Ações</th>
+                <th className="col-checkbox"></th>
+                <th className="col-date">Data</th>
+                <th className="col-name">Descrição</th>
+                <th className="col-category">Categoria</th>
+                <th className="col-type">Tipo</th>
+                <th className="col-value">Valor</th>
+                <th className="col-actions">Ações</th>
               </tr>
             </thead>
             <tbody>
-              {filteredTransactions.length === 0 ? (
+              {displayedTransactions.length === 0 ? (
                 <tr>
-                  <td colSpan="6" className="empty-state">
+                  <td colSpan="7" className="empty-state">
                     Nenhuma transação encontrada
                   </td>
                 </tr>
               ) : (
-                filteredTransactions.map((t) => (
-                  <tr key={t.id} className="transaction-row">
-                    <td className="date-cell">{formatDate(t.date)}</td>
-                    <td className="name-cell">
-                      <span className="category-icon-inline">{categoryIcons[t.category]}</span>
-                      {t.name}
-                    </td>
-                    
-                    <td className="category-cell">
-                      <EditableCategory
-                        currentCategory={t.category}
-                        categories={allAvailableCategories}
-                        categoryIcons={categoryIcons}
-                        onUpdate={(newCategory) => onUpdateTransaction(t.id, { category: newCategory })}
-                      />
-                    </td>
-
-                    <td className="type-cell">
-                      <span className={`badge badge-${t.type}`}>
-                        {t.type === 'income' ? '📈 Receita' : '📉 Despesa'}
-                      </span>
-                    </td>
-                    <td className={`value-cell ${t.type}`}>
-                      {t.type === 'income' ? '+' : '-'} {formatCurrency(t.value)}
-                    </td>
-
-                    <td className="actions-cell">
-                      <button
-                        className="action-btn edit-btn"
-                        onClick={() => handleOpenEditModal(t)}
-                        title="Editar transação completa"
-                        style={{ marginRight: '8px' }}
-                      >
-                        ✏️
-                      </button>
-
-                      <button
-                        className="action-btn delete-btn"
-                        onClick={() => onDeleteTransaction(t.id)}
-                        title="Deletar"
-                      >
-                        🗑️
-                      </button>
-                    </td>
-                  </tr>
+                displayedTransactions.map((t) => (
+                  <TransactionRow
+                    key={t.id}
+                    transaction={t}
+                    isSelected={selectedIds.includes(t.id)}
+                    onSelect={handleSelectTransaction}
+                    onUpdateTransaction={onUpdateTransaction}
+                    onOpenEditModal={(tx) => { setTransactionToEdit(tx); setModalOpen(true); }}
+                    onDeleteTransaction={onDeleteTransaction}
+                    allAvailableCategories={allAvailableCategories}
+                    categoryIcons={categoryIcons}
+                  />
                 ))
               )}
             </tbody>

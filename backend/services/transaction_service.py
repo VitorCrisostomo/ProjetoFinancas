@@ -104,6 +104,18 @@ class TransactionService:
 
         return self.repository.update(transaction)
 
+    def associate_transaction(self, user_id, keep_id, remove_id, updated_data):
+        t1 = self.repository.get_by_id(keep_id)
+        t2 = self.repository.get_by_id(remove_id)
+
+        if not t1 or t1.user_id != user_id or not t2 or t2.user_id != user_id:
+            raise NotFoundError("Transações não encontradas ou não pertencem ao usuário")
+
+        updated_transaction = self.update_transaction(keep_id, updated_data)
+        self.delete_transaction(remove_id)
+
+        return updated_transaction
+
     def import_csv(self, file, user_id):
         if file.filename == '':
             raise ValidationError("O arquivo recebido não possui nome.")

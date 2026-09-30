@@ -59,6 +59,25 @@ def update_transaction(transaction_id):
 
     return jsonify(transaction.to_json()), 200
 
+@transaction_routes.route("/transactions/associate", methods=["POST"])
+@jwt_required()
+def associate_transaction():
+    current_user_id = int(get_jwt_identity())
+    data = request.get_json()
+
+    keep_id = data.get("keep_id")
+    remove_id = data.get("remove_id")
+    updated_data = data.get("updated_data")
+
+    if not keep_id or not remove_id or not updated_data:
+        return jsonify({"message": "Dados incompletos para associação."}), 400
+
+    updated_transaction = transaction_service.associate_transaction(
+        current_user_id, keep_id, remove_id, updated_data
+    )
+
+    return jsonify(updated_transaction.to_json()), 200
+
 
 @transaction_routes.route("/transactions/<int:transaction_id>",methods=["DELETE"])
 @jwt_required()
