@@ -5,7 +5,6 @@ from werkzeug.security import generate_password_hash, check_password_hash
 from models.user import User
 from exceptions.api_errors import NotFoundError, ValidationError
 from repositories.user_repository import UserRepository
-from validators.email_validator import is_valid_email
 
 
 class UserService:
