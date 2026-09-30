@@ -18,35 +18,31 @@ export default function FinancialDashboard() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      const fetchTransactions = async () => {
+      const fetchData = async () => {
         try {
-          // 1. Pega o token salvo
           const token = localStorage.getItem('token');
-
-          // Se não tiver token, nem tenta buscar (o usuário não tá logado ainda)
           if (!token) return;
         
-          const response = await fetch(`${API_URL}/transactions`, {
-            method: 'GET', // Opcional colocar o GET, mas é bom para clareza
-            headers: {
-              'Content-Type': 'application/json',
-              // 2. Mostra o crachá para o servidor!
-              'Authorization': `Bearer ${token}` 
-            }
+          const transResponse = await fetch(`${API_URL}/transactions`, {
+            headers: { 'Authorization': `Bearer ${token}` }
           });
-        
-          if (response.ok) {
-            const data = await response.json();
-            setTransactions(data); // Salva as transações do usuário logado!
-          } else {
-            console.error("Falha ao carregar transações");
+          if (transResponse.ok) {
+            setTransactions(await transResponse.json());
           }
+
+          const accResponse = await fetch(`${API_URL}/accounts`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          });
+          if (accResponse.ok) {
+            setAccounts(await accResponse.json());
+          }
+          
         } catch (error) {
-          console.error("Erro:", error);
+          console.error("Erro ao carregar dados iniciais:", error);
         }
-  };
+      };
       
-      fetchTransactions();
+      fetchData();
     }
   }, [isAuthenticated]);
 
@@ -238,7 +234,7 @@ const handleDeleteTransaction = async (id) => {
             onUpdateTransaction={handleUpdateTransaction}
           />
         );
-      case 'accounts': // 👈 NOVA ROTA DO FRONTEND
+      case 'accounts':
         return (
           <AccountsPage 
             accounts={accounts}
