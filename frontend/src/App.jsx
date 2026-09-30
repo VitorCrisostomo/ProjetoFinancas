@@ -167,6 +167,44 @@ const handleDeleteTransaction = async (id) => {
     }
   };
 
+  const handleAssociateTransactions = async (keepId, removeId, updatedData) => {
+    try {
+      const token = localStorage.getItem('token');
+
+      const response = await fetch(`${API_URL}/transactions/associate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          keep_id: keepId,
+          remove_id: removeId,
+          updated_data: {
+            ...updatedData,
+            value: parseFloat(updatedData.value)
+          }
+        })
+      });
+
+      if (response.ok) {
+        const updatedTransaction = await response.json();
+        setTransactions(
+          transactions
+            .filter((t) => t.id !== removeId)
+            .map((t) => (t.id === keepId ? updatedTransaction : t))
+        );
+        alert("Transações associadas com sucesso!");
+      } else {
+        const errorData = await response.json();
+        alert(`Erro ao associar: ${errorData.message || "Erro desconhecido"}`);
+      }
+    } catch (error) {
+      console.error("Erro ao associar transações:", error);
+      alert("Erro de conexão com o servidor.");
+    }
+  };
+
   const handleRegister = async ({ name, email, password }) => {
     try {
       const response = await fetch(`${API_URL}/create_users`, {
@@ -223,6 +261,7 @@ const handleDeleteTransaction = async (id) => {
             onAddTransaction={handleAddTransaction}
             onDeleteTransaction={handleDeleteTransaction}
             onUpdateTransaction={handleUpdateTransaction}
+            onAssociateTransactions={handleAssociateTransactions}
           />
         );
       default:
