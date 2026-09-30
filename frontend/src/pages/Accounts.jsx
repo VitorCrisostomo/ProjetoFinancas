@@ -14,24 +14,38 @@ const AccountsPage = ({ accounts, onSyncAccount, onDeleteAccount }) => {
     setIsSyncing(true);
 
     const itemId = data.item.id;
-    console.log("Conectado na Pluggy! Item ID:", itemId);
+    console.log("Conectado na Pluggy! Sincronizando Item ID:", itemId);
 
-    const mockApiResponse = {
-      id: crypto.randomUUID(),
-      type: "BANK",
-      subtype: "CHECKING_ACCOUNT",
-      number: Math.floor(Math.random() * 90000 + 10000) + "-0",
-      name: `Conta Pluggy Sincronizada`,
-      balance: Math.random() * 5000,
-      currencyCode: "BRL",
-      itemId: itemId
-    };
+    try {
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch('http://localhost:5000/pluggy/accounts/sync', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}` 
+        },
+        body: JSON.stringify({ itemId: itemId })
+      });
 
-    setTimeout(() => {
-      onSyncAccount(mockApiResponse);
+      if (response.ok) {
+        const result = await response.json();
+        
+        result.accounts.forEach(acc => {
+          onSyncAccount(acc);
+        });
+        
+        alert(`Sucesso! ${result.accounts.length} conta(s) sincronizada(s).`);
+      } else {
+        const errorData = await response.json();
+        alert(`Erro na sincronização: ${errorData.message}`);
+      }
+    } catch (error) {
+      console.error("Erro ao sincronizar contas:", error);
+      alert("Falha de conexão com o servidor ao sincronizar.");
+    } finally {
       setIsSyncing(false);
-      alert(`Conta conectada com sucesso! (Item da Pluggy: ${itemId.substring(0,8)}...)`);
-    }, 1500);
+    }
   };
 
   const handleOpenWidget = async () => {
