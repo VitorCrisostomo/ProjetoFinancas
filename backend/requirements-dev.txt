@@ -1,0 +1,2 @@
+# Ferramentas de desenvolvimento; dependências da aplicação estão na raiz.
+ruff==0.16.9

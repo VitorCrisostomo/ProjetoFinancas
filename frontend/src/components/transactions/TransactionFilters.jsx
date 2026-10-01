@@ -1,16 +1,17 @@
 import { categoryIcons } from '../../utils/category.jsx';
+import TransactionPeriodFilter from '../common/TransactionPeriodFilter.jsx';
 
 const types = ['all', 'income', 'expense'];
 
 export default function TransactionFilters({ categories, filterCategory, setFilterCategory,
-  filterType, setFilterType }) {
+  filterType, setFilterType, period, clearSelection }) {
   return (
     <div className="filters-section">
       <div className="filter-group">
         <label>Categoria</label>
         <select
           value={filterCategory}
-          onChange={(e) => setFilterCategory(e.target.value)}
+          onChange={(e) => { setFilterCategory(e.target.value); clearSelection(); }}
           className="filter-select"
         >
           {categories.map((cat) => (
@@ -25,7 +26,7 @@ export default function TransactionFilters({ categories, filterCategory, setFilt
         <label>Tipo</label>
         <select
           value={filterType}
-          onChange={(e) => setFilterType(e.target.value)}
+          onChange={(e) => { setFilterType(e.target.value); clearSelection(); }}
           className="filter-select"
         >
           {types.map((type) => (
@@ -35,6 +36,7 @@ export default function TransactionFilters({ categories, filterCategory, setFilt
           ))}
         </select>
       </div>
+      <TransactionPeriodFilter period={period} onChange={clearSelection} />
     </div>
   );
 }

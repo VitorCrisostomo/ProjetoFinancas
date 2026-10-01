@@ -19,6 +19,8 @@ export default function TransactionsPage(props) {
         handleOpenNewModal={controls.handleOpenNewModal}
       />
       <TransactionFilters
+        period={controls.period}
+        clearSelection={controls.clearSelection}
         categories={controls.categories}
         filterCategory={controls.filterCategory}
         setFilterCategory={controls.setFilterCategory}

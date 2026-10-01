@@ -1,8 +1,13 @@
+"""Valida e sincroniza contas vinculadas aos usuários."""
+
+from exceptions.api_errors import NotFoundError, ValidationError
 from models.account import Account
 from repositories.account_repository import AccountRepository
-from exceptions.api_errors import NotFoundError, ValidationError
+
 
 class AccountService:
+    """Regras de sincronização e acesso às contas de um usuário."""
+
     def __init__(self):
         self.repository = AccountRepository()
 
@@ -10,16 +15,18 @@ class AccountService:
         return self.repository.get_by_user_id(user_id)
 
     def get_account_by_id(self, account_id, user_id):
+        """Busca a conta e verifica se ela pertence ao usuário informado."""
         account = self.repository.get_by_id(account_id)
-        
+
         if not account or account.user_id != user_id:
             raise NotFoundError("Conta não encontrada.")
-            
+
         return account
 
     def sync_account(self, data, user_id):
+        """Cria ou atualiza uma conta externa, respeitando o vínculo com o usuário."""
         account_id = data.get("id")
-        
+
         if not account_id:
             raise ValidationError("O 'id' da conta (fornecido pela API externa) é obrigatório.")
 
@@ -29,21 +36,23 @@ class AccountService:
             # Proteção de segurança: garante que o UUID da API não está sendo atrelado a outro usuário
             if existing_account.user_id != user_id:
                 raise ValidationError("Esta conta já está vinculada a outro usuário.")
-            
+
             # Atualiza apenas os campos que podem mudar no dia a dia
             existing_account.balance = data.get("balance", existing_account.balance)
             existing_account.name = data.get("name", existing_account.name)
             existing_account.bankData = data.get("bankData", existing_account.bankData)
             existing_account.creditData = data.get("creditData", existing_account.creditData)
-            
+
             return self.repository.update(existing_account)
-            
+
         else:
             # Criação de nova conta (Validação dos campos obrigatórios da API externa)
             required_fields = ["type", "subtype", "itemId", "number", "name", "balance"]
             for field in required_fields:
                 if data.get(field) is None:
-                    raise ValidationError(f"O campo '{field}' é obrigatório para sincronizar nova conta.")
+                    raise ValidationError(
+                        f"O campo '{field}' é obrigatório para sincronizar nova conta."
+                    )
 
             new_account = Account(
                 id=account_id,
@@ -59,12 +68,13 @@ class AccountService:
                 balance=data.get("balance", 0.0),
                 currencyCode=data.get("currencyCode", "BRL"),
                 bankData=data.get("bankData"),
-                creditData=data.get("creditData")
+                creditData=data.get("creditData"),
             )
-            
+
             return self.repository.create(new_account)
 
     def delete_account(self, account_id, user_id):
+        """Valida o vínculo com o usuário antes de excluir a conta."""
         account = self.repository.get_by_id(account_id)
 
         if not account or account.user_id != user_id:

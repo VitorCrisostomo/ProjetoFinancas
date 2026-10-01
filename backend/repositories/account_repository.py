@@ -1,8 +1,12 @@
-from config import db 
+"""Consulta e persiste contas utilizando a sessão do SQLAlchemy."""
+
+from config import db
 from models.account import Account
 
+
 class AccountRepository:
-    
+    """Operações de contas; cada escrita confirma a sessão atual."""
+
     def create(self, account: Account) -> Account:
         db.session.add(account)
         db.session.commit()
@@ -13,7 +17,7 @@ class AccountRepository:
 
     def get_by_user_id(self, user_id: int) -> list:
         return Account.query.filter_by(user_id=user_id).all()
-    
+
     def get_by_item_id(self, item_id: str) -> list:
         return Account.query.filter_by(itemId=item_id).all()
 
