@@ -459,6 +459,72 @@
 
   /* ========== SEÇÕES ========== */
 
+  .accounts-description {
+    color: var(--text-secondary);
+    margin-bottom: 1.5rem;
+  }
+
+  .accounts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+    gap: 1.5rem;
+  }
+
+  .accounts-empty { grid-column: 1 / -1; }
+
+  .accounts-sync-status {
+    color: var(--text-secondary);
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+    text-align: center;
+  }
+
+  .account-card { gap: 1.25rem; }
+  .account-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+  .account-card-name {
+    color: var(--text-primary);
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+    overflow-wrap: anywhere;
+  }
+  .account-card-icon { font-size: 1.75rem; flex-shrink: 0; }
+  .account-card-subtype {
+    display: inline-block;
+    color: var(--text-secondary);
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 0.2rem 0.6rem;
+    font-size: 0.8rem;
+  }
+  .account-card-label { color: var(--text-secondary); font-size: 0.9rem; }
+  .account-card-number { color: var(--text-primary); font-weight: 500; overflow-wrap: anywhere; }
+  .account-card-balance { font-size: 1.75rem; font-weight: 700; overflow-wrap: anywhere; }
+  .account-card-balance.positive { color: var(--accent-success); }
+  .account-card-balance.negative { color: var(--accent-danger); }
+  .account-card-footer { margin-top: auto; padding-top: 1rem; border-top: 1px solid var(--border-color); }
+  .account-disconnect {
+    color: var(--accent-danger);
+    background: transparent;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 0.5rem 0.75rem;
+    font: inherit;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: var(--transition);
+  }
+  .account-disconnect:hover { background: var(--bg-hover); border-color: var(--accent-danger); }
+  .account-disconnect:focus-visible { outline: 2px solid var(--accent-danger); outline-offset: 3px; }
+
   .section {
     background-color: var(--bg-secondary);
     border: 1px solid var(--border-color);
@@ -599,6 +665,29 @@
   border-bottom: 1px solid var(--border-color);
   font-size: 0.95rem;
   vertical-align: middle; /* 👈 Essencial para alinhar perfeitamente todas as colunas da linha */
+}
+
+.transactions-table .transaction-date-group th {
+  border-bottom: none;
+  padding: 1.5rem 0 0.75rem;
+  color: var(--text-secondary);
+  text-transform: none;
+  letter-spacing: normal;
+  font-size: 0.9rem;
+}
+
+.transaction-date-separator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  white-space: nowrap;
+}
+
+.transaction-date-separator::before, .transaction-date-separator::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid var(--border-color);
 }
 
 /* Evita quebras de linha indesejadas nas colunas de dados fixos e ações */

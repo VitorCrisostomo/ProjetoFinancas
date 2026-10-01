@@ -19,19 +19,19 @@ const AccountsPage = ({ accounts, ...actions }) => {
       </div>
 
       <div className="section">
-        <p className="text-muted" style={{ marginBottom: '20px' }}>
+        <p className="accounts-description">
           Gerencie suas contas bancárias e cartões de crédito sincronizados via Open Finance.
         </p>
 
         {isSyncing && (
-          <div style={{ padding: '20px', textAlign: 'center', background: '#f8f9fa', borderRadius: '8px', marginBottom: '20px' }}>
+          <div className="accounts-sync-status" role="status">
             ⏳ Sincronizando dados com a instituição financeira...
           </div>
         )}
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '20px' }}>
+        <div className="accounts-grid">
           {accounts.length === 0 && !isSyncing ? (
-            <div className="empty-state" style={{ gridColumn: '1 / -1', padding: '40px' }}>
+            <div className="empty-state accounts-empty">
               Nenhuma conta conectada. Clique no botão acima para conectar.
             </div>
           ) : (
