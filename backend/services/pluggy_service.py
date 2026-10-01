@@ -71,10 +71,9 @@ class PluggyService:
         return synced_accounts
 
     def get_transactions_for_account(self, pluggy_account_id):
-        """Busca TODAS as transações de uma conta na Pluggy v2, lidando com paginação por cursor."""
+        """Busca as transações de uma conta na Pluggy v2."""
         api_key = self._get_api_key()
         
-        all_transactions = []
         url = f"{self.base_url}/v2/transactions?accountId={pluggy_account_id}"
         
         headers = {
@@ -82,29 +81,11 @@ class PluggyService:
             "Content-Type": "application/json"
         }
         
-        # Loop para buscar todas as páginas usando o cursor da Pluggy v2
-        while url:
-            response = requests.get(url, headers=headers)
+        response = requests.get(url, headers=headers)
+        
+        if response.status_code != 200:
+            print(f"🚨 ERRO DA PLUGGY (Transações): Status {response.status_code} - {response.text}")
+            raise APIError(f"Falha ao buscar transações na API da Pluggy: {response.text}", status_code=500)
             
-            if response.status_code != 200:
-                print(f"🚨 ERRO DA PLUGGY (Transações): Status {response.status_code} - {response.text}")
-                raise APIError(f"Falha ao buscar transações na API da Pluggy: {response.text}", status_code=500)
-                
-            data = response.json()
-            results = data.get("results", [])
-            all_transactions.extend(results)
-            
-            # Verifica se existe uma próxima página (next cursor)
-            # A Pluggy v2 costuma retornar 'next' ou 'totalPages'/'cursor' na resposta de paginação
-            # Verifique a estrutura exata da v2 da Pluggy ou utilize o campo de paginação retornado:
-            next_cursor = data.get("next")
-            if next_cursor:
-                # Se 'next' vier como URL completa ou token, ajustamos:
-                if next_cursor.startswith("http"):
-                    url = next_cursor
-                else:
-                    url = f"{self.base_url}/v2/transactions?accountId={pluggy_account_id}&cursor={next_cursor}"
-            else:
-                url = None
-                
-        return all_transactions
+        data = response.json()
+        return data.get("results", [])

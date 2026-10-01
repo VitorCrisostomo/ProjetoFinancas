@@ -46,7 +46,7 @@ def sync_pluggy_accounts():
 def sync_pluggy_transactions():
     current_user_id = int(get_jwt_identity())
     
-    # ❌ A linha do 'from_date' foi removida para não haver restrição de 30 dias
+    
     user_accounts = Account.query.filter_by(user_id=current_user_id).all()
     
     total_synced = 0
