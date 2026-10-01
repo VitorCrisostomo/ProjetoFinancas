@@ -2,7 +2,7 @@ import { useRef } from 'react';
 import Button from '../common/Button.jsx';
 
 export default function TransactionToolbar({ selectedIds, handleExecuteAssociation,
-  handleFileUpload, isUploading, isSyncing, handleSyncTransactions, handleOpenNewModal }) {
+  handleFileUpload, isUploading, isSyncing, openSyncModal, handleOpenNewModal }) {
   const fileInput = useRef(null);
   return (
     <div className="page-header">
@@ -40,7 +40,7 @@ export default function TransactionToolbar({ selectedIds, handleExecuteAssociati
           {isUploading ? '⏳ Importando...' : '📄 Importar CSV'}
         </Button>
 
-        <Button variant="secondary" size="lg" onClick={handleSyncTransactions} disabled={isSyncing || isUploading}>
+        <Button variant="secondary" size="lg" onClick={openSyncModal} disabled={isSyncing || isUploading}>
           {isSyncing ? '⏳ Sincronizando...' : '🔄 Sincronizar'}
         </Button>
 

@@ -51,6 +51,8 @@ def sync_pluggy_accounts():
 def sync_pluggy_transactions():
     """Consulta e persiste as transações das contas do usuário autenticado."""
     current_user_id = int(get_jwt_identity())
+    options = request.get_json() if request.is_json else None
+    date_from, date_to = pluggy_service.get_sync_date_range(options)
 
     user_accounts = Account.query.filter_by(user_id=current_user_id).all()
 
@@ -63,15 +65,17 @@ def sync_pluggy_transactions():
         if not pluggy_account_id:
             continue
 
-        # Consulta a Pluggy pelo UUID da conta, sem filtro de data.
-        pluggy_txs = pluggy_service.get_transactions_for_account(pluggy_account_id)
+        pluggy_txs = pluggy_service.get_transactions_for_account(
+            pluggy_account_id, date_from=date_from, date_to=date_to
+        )
 
         for tx_data in pluggy_txs:
             saved_tx = transaction_service.sync_transaction(
                 tx_data=tx_data, internal_account_id=account.id, user_id=current_user_id
             )
-            synced_transactions.append(saved_tx.to_json())
-            total_synced += 1
+            if saved_tx is not None:
+                synced_transactions.append(saved_tx.to_json())
+                total_synced += 1
 
     return jsonify(
         {

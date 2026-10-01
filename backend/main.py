@@ -1,6 +1,7 @@
 """Inicializa as rotas e executa o servidor de desenvolvimento."""
 
 from config import app, db
+from repositories.transaction_repository import TransactionRepository
 from routes.account_routes import account_routes
 from routes.pluggy_route import pluggy_routes
 from routes.transaction_route import transaction_routes
@@ -18,6 +19,7 @@ if __name__ == "__main__":
     from models.user import User  # noqa: F401
 
     with app.app_context():
+        TransactionRepository.initialize_sync_protection()
         db.create_all()
 
     app.run(debug=True)

@@ -69,7 +69,7 @@ class TransactionService:
 
         return self.repository.create(transaction)
 
-    def update_transaction(self, transaction_id, data):
+    def update_transaction(self, transaction_id, data, commit=True):
         """Atualiza os campos fornecidos de uma transação existente."""
         transaction = self.repository.get_by_id(transaction_id)
 
@@ -108,20 +108,30 @@ class TransactionService:
             else:
                 transaction.type = data["type"]
 
-        return self.repository.update(transaction)
+        if any(key in data for key in ("value", "date", "name", "category", "description", "type")):
+            self.repository.protect_from_sync(transaction)
+        return self.repository.update(transaction, commit=commit)
 
     def associate_transaction(self, user_id, keep_id, remove_id, updated_data):
-        """Atualiza a transação mantida e exclui a outra, validando o usuário."""
+        """Associa atomicamente e protege os dois identificadores externos."""
+        if keep_id == remove_id:
+            raise ValidationError("Selecione duas transações diferentes para associar.")
         t1 = self.repository.get_by_id(keep_id)
         t2 = self.repository.get_by_id(remove_id)
 
         if not t1 or t1.user_id != user_id or not t2 or t2.user_id != user_id:
             raise NotFoundError("Transações não encontradas ou não pertencem ao usuário")
 
-        updated_transaction = self.update_transaction(keep_id, updated_data)
-        self.delete_transaction(remove_id)
-
-        return updated_transaction
+        try:
+            updated_transaction = self.update_transaction(keep_id, updated_data, commit=False)
+            self.repository.protect_from_sync(t1)
+            self.repository.protect_from_sync(t2)
+            db.session.delete(t2)
+            db.session.commit()
+            return updated_transaction
+        except Exception:
+            db.session.rollback()
+            raise
 
     def import_csv(self, file, user_id):
         """Importa o extrato CSV; cada linha válida é persistida individualmente."""
@@ -293,8 +303,14 @@ class TransactionService:
         if not pluggy_tx_id:
             return None
 
+        # Inclui identificadores de lançamentos removidos em associações anteriores.
+        if self.repository.is_sync_protected(user_id, pluggy_tx_id):
+            return None
+
         # O identificador externo permite atualizar lançamentos já sincronizados.
         existing_tx = Transaction.query.filter_by(external_id=pluggy_tx_id).first()
+        if existing_tx and existing_tx.user_id != user_id:
+            return None
 
         # Datas ausentes ou inválidas mantêm a data UTC utilizada como fallback.
         raw_date = tx_data.get("date")

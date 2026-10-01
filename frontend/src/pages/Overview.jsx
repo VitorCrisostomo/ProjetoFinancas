@@ -1,4 +1,4 @@
-import { getTransactionSummary } from '../utils/transactionSummary.js';
+import { getOpeningBalance, getTransactionSummary } from '../utils/transactionSummary.js';
 import useTransactionPeriod from '../hooks/useTransactionPeriod.js';
 import TransactionPeriodFilter from '../components/common/TransactionPeriodFilter.jsx';
 import Card from "../components/common/Card";
@@ -8,6 +8,8 @@ import { categoryIcons, categoryColors } from "../utils/category";
 const OverviewPage = ({ transactions }) => {
   const period = useTransactionPeriod(transactions);
   const { totalIncome, totalExpense, balance, expensesByCategory } = getTransactionSummary(period.transactions);
+  const openingBalance = getOpeningBalance(transactions, period.month, period.year);
+  const totalBalance = (openingBalance ?? 0) + balance;
   const maxExpense = Math.max(...Object.values(expensesByCategory), 1);
 
   return (
@@ -27,11 +29,25 @@ const OverviewPage = ({ transactions }) => {
       {/* Indicadores Principais */}
       <div className="cards-grid large">
         <Card
-          title={period.isFiltered ? 'Saldo do período' : 'Saldo Total'}
-          value={formatCurrency(balance)}
+          title={openingBalance !== null ? 'Saldo acumulado' : period.isFiltered ? 'Saldo do período' : 'Saldo Total'}
+          value={formatCurrency(totalBalance)}
           icon="💰"
-          color={balance >= 0 ? '#10b981' : '#ef4444'}
-        />
+          color={totalBalance >= 0 ? '#10b981' : '#ef4444'}
+        >
+          {openingBalance !== null ? <>
+            <p className="transactions-balance-description">
+              Saldo anterior: {formatCurrency(openingBalance)}
+            </p>
+            <p className="transactions-balance-description">
+              Movimentações do período: {formatCurrency(balance)}
+            </p>
+            <p className="transactions-balance-description">
+              Inclui todo o histórico antes do início do período selecionado.
+            </p>
+          </> : period.month !== 'all' && <p className="transactions-balance-description">
+            Selecione também o ano para incluir o saldo anterior.
+          </p>}
+        </Card>
         <Card
           title="Total de Receitas"
           value={formatCurrency(totalIncome)}

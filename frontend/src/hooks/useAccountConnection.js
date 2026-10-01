@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 export default function useAccountConnection({ onGetConnectToken, onSyncAccounts,
-  onSyncTransactions, onDeleteAccount }) {
+  onDeleteAccount }) {
   const [isWidgetOpen, setIsWidgetOpen] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
   const [connectToken, setConnectToken] = useState("");
@@ -13,8 +13,7 @@ export default function useAccountConnection({ onGetConnectToken, onSyncAccounts
     try {
       const result = await onSyncAccounts(data.item.id);
       if (!result) return;
-      await onSyncTransactions();
-      alert(`Sucesso! ${result.accounts.length} conta(s) sincronizada(s).`);
+      alert(`Sucesso! ${result.accounts.length} conta(s) conectada(s). Para buscar as transações, acesse Transações e escolha o mês em Sincronizar.`);
     } catch (error) {
       alert(`Erro na sincronização: ${error.message}`);
     } finally {

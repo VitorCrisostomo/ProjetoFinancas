@@ -3,6 +3,8 @@ import TransactionToolbar from '../components/transactions/TransactionToolbar.js
 import TransactionFilters from '../components/transactions/TransactionFilters.jsx';
 import TransactionTable from '../components/transactions/TransactionTable.jsx';
 import TransactionModal from '../components/common/TransactionModal.jsx';
+import SyncTransactionsModal from '../components/transactions/SyncTransactionsModal.jsx';
+import formatCurrency from '../utils/currency.jsx';
 
 export default function TransactionsPage(props) {
   const controls = useTransactionControls(props);
@@ -15,7 +17,7 @@ export default function TransactionsPage(props) {
         handleFileUpload={controls.handleFileUpload}
         isUploading={controls.isUploading}
         isSyncing={controls.isSyncing}
-        handleSyncTransactions={controls.handleSyncTransactions}
+        openSyncModal={controls.openSyncModal}
         handleOpenNewModal={controls.handleOpenNewModal}
       />
       <TransactionFilters
@@ -27,6 +29,28 @@ export default function TransactionsPage(props) {
         filterType={controls.filterType}
         setFilterType={controls.setFilterType}
       />
+      <div className="highlight-section">
+        <div className="highlight-card">
+          <span className="highlight-label">
+            {controls.openingBalance !== null ? 'Saldo com as movimentações filtradas' : 'Saldo total das transações filtradas'}
+          </span>
+          <span className={`highlight-value ${controls.totalBalance >= 0 ? 'positive' : 'negative'}`}>
+            {formatCurrency(controls.totalBalance)}
+          </span>
+          {controls.openingBalance !== null ? <>
+            <p className="transactions-balance-description">
+              Saldo anterior: {formatCurrency(controls.openingBalance)}
+              {' · '}Movimentações filtradas: {formatCurrency(controls.filteredBalance)}
+            </p>
+            <p className="transactions-balance-description">
+              O saldo anterior inclui todo o histórico antes do início do período selecionado.
+            </p>
+          </> : <p className="transactions-balance-description">
+            Receitas menos despesas de todas as transações que correspondem aos filtros.
+            {controls.period.month !== 'all' && ' Selecione também o ano para incluir o saldo anterior.'}
+          </p>}
+        </div>
+      </div>
       <TransactionTable
         displayedTransactions={controls.displayedTransactions}
         filteredTransactions={controls.filteredTransactions}
@@ -36,6 +60,13 @@ export default function TransactionsPage(props) {
         handleOpenEditModal={controls.handleOpenEditModal}
         handleDeleteTransaction={controls.handleDeleteTransaction}
       />
+      {controls.syncModalOpen && <SyncTransactionsModal
+        period={controls.period}
+        isSyncing={controls.isSyncing}
+        error={controls.syncError}
+        onClose={controls.closeSyncModal}
+        onSync={controls.handleSyncTransactions}
+      />}
       {controls.modalOpen && <TransactionModal
         key={controls.transactionToEdit?.id ?? "new"}
         isOpen={controls.modalOpen}

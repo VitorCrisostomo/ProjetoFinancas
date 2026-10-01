@@ -10,6 +10,7 @@ export const categoryColors = {
   'Saúde': '#14b8a6',
   'Educação': '#f97316',
   'Taxas e Impostos': '#423b5f',
+  'Investimentos': '#035715',
 };
 
 export const categoryIcons = {
@@ -24,4 +25,5 @@ export const categoryIcons = {
   'Saúde': '🏥',
   'Educação': '📚',
   'Taxas e Impostos': '💸',
+  'Investimentos': '📈',
 };

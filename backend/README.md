@@ -57,7 +57,7 @@ Requisições JSON usam `Content-Type: application/json`. As rotas com JWT exige
 | POST | `/transactions/import` | Sim | Arquivo no campo multipart `file` |
 | GET | `/pluggy/connect_token` | Sim | — |
 | POST | `/pluggy/accounts/sync` | Sim | `itemId` |
-| POST | `/pluggy/transactions/sync` | Sim | — |
+| POST | `/pluggy/transactions/sync` | Sim | `mode: "month"`, `month`, `year` obrigatórios |
 
 Criação de usuários, criação de transações e importação CSV retornam 201 no sucesso; as demais rotas retornam 200. Erros derivados de `APIError` retornam `{"message": "..."}` com o status associado. Erros do Flask e do JWT seguem os handlers das respectivas bibliotecas.
 
@@ -69,7 +69,17 @@ O cadastro gera um código de seis dígitos e o imprime no terminal, simulando o
 
 O ID de conta é o UUID externo fornecido pela Pluggy. Novas contas exigem `type`, `subtype`, `itemId`, `number`, `name` e `balance`. Contas existentes atualizam saldo, nome e dados bancários/de crédito, mantendo o vínculo com o usuário.
 
-O widget recebe `connectToken`; após a conexão, o frontend envia `itemId` para sincronizar as contas. A sincronização de transações percorre as contas do usuário e cria ou atualiza lançamentos por `external_id`. As consultas externas atuais utilizam `results` da resposta, sem percorrer páginas adicionais.
+O widget recebe `connectToken`; após a conexão, o frontend envia `itemId` para sincronizar as contas. A sincronização de transações percorre as contas do usuário e cria ou atualiza lançamentos por `external_id`. A busca segue todos os cursores `next` em `/v2/transactions`, conforme a [documentação da Pluggy](https://v2.docs.pluggy.ai/en/reference/transaction/transactions-list-by-cursor).
+
+A sincronização é solicitada manualmente com `{"mode": "month", "year": 2026, "month": 10}`. Mês e ano devem ser números inteiros. O backend valida os valores e envia `dateFrom` e `dateTo` inclusivos, do primeiro ao último dia do mês. Requisições sem período ou com `mode: "all"` são rejeitadas. Conectar uma conta salva apenas seus dados, sem importar transações automaticamente. Essa busca consulta o histórico já disponibilizado pelo provedor; não força uma atualização da conexão bancária.
+
+Os cursores são utilizados sem reconstrução; respostas inválidas, cursores repetidos e falhas do provedor retornam erro. Autenticação e consulta de transações têm timeout de 30 segundos por requisição. A sincronização preserva lançamentos manuais e transações de outros períodos. Como a persistência continua individual, uma falha em uma conta posterior pode deixar dados de contas anteriores já gravados.
+
+A sincronização ignora identificadores externos protegidos em `transaction_sync_protections`. Qualquer edição de campos do lançamento, inclusive apenas categoria, protege a transação inteira. Uma associação protege os identificadores de ambos os lançamentos e mantém a proteção do excluído, impedindo sua recriação. Edição, proteção e exclusão da associação são confirmadas na mesma transação do banco; falhas desfazem a operação. Lançamentos novos e ainda não editados continuam sendo criados ou atualizados normalmente.
+
+Ao iniciar `python main.py`, o repositório cria a tabela de proteção se estiver ausente e protege todos os identificadores externos existentes. Essa inicialização é executada apenas uma vez e preserva edições antigas, já que o banco não mantinha uma marcação de alterações. Não modifica valores nem recria lançamentos. Identificadores excluídos em associações anteriores à implementação não podem ser recuperados automaticamente. Reinicie o backend para ativar a inicialização; inicializadores alternativos devem chamar `TransactionRepository.initialize_sync_protection()` no contexto da aplicação.
+
+Para executar os testes, sem rede ou credenciais, use `python -B -m unittest discover -s tests -v` na pasta `backend/`. Os testes de proteção usam SQLite em memória e exigem Flask e Flask-SQLAlchemy; não acessam o banco configurado em `.env`.
 
 ### Transações e CSV
 
