@@ -3,6 +3,7 @@ import formatCurrency from '../utils/currency.jsx';
 import useTransactionPeriod from './useTransactionPeriod.js';
 import { getOpeningBalance, getTransactionSummary } from '../utils/transactionSummary.js';
 import { getAssociationData } from '../utils/transactionAssociation.js';
+import { sortTransactionsByDate } from '../utils/transactionList.js';
 
 export default function useTransactionControls({ 
   transactions, 
@@ -25,11 +26,11 @@ export default function useTransactionControls({
   const categories = ['all', ...new Set(transactions.map((t) => t.category))];
 
   // Filtragem
-  const filteredTransactions = period.transactions.filter((t) => {
+  const filteredTransactions = sortTransactionsByDate(period.transactions.filter((t) => {
     const categoryMatch = filterCategory === 'all' || t.category === filterCategory;
     const typeMatch = filterType === 'all' || t.type === filterType;
     return categoryMatch && typeMatch;
-  });
+  }));
 
   const displayedTransactions = period.month !== 'all'
     ? filteredTransactions

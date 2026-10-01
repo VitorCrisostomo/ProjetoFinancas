@@ -54,6 +54,8 @@ O padrão mostra todo o histórico. É possível selecionar um ano inteiro ou a 
 
 Em Transações, o período combina com categoria e tipo; ao selecionar um mês, todas as linhas correspondentes são exibidas. Sem mês selecionado, permanece o limite visual de 50 linhas. Mudar um filtro limpa a seleção para associação. Transações e Visão geral incluem o saldo anterior quando há um ano definido: o histórico anterior ao início do mês (ou do ano inteiro) é somado às movimentações filtradas. Mês sem ano não possui saldo anterior único. Receitas, despesas, gráficos e taxa de economia do Overview consideram somente o período. Períodos sem lançamentos mantêm o saldo anterior quando aplicável. Os filtros não alteram os dados persistidos.
 
+`transactionList.js` ordena as transações pela data de calendário, da mais recente à mais antiga, antes do limite visual. A tabela usa um grupo por dia com separador por data, incluindo o ano, sem deslocar o lançamento por conversão de fuso. Datas inválidas ficam no último grupo. Os cartões de contas usam a classe compartilhada `card` e as variáveis de tema, inclusive no estado de sincronização e na grade responsiva.
+
 ## Modal de sincronização
 
 O botão Sincronizar em Transações abre `SyncTransactionsModal`, um diálogo nativo com navegação por teclado, foco contido e fechamento por Escape. A sincronização é apenas manual, para um mês específico escolhido com o controle de mês e ano do navegador. O campo usa o período dos filtros quando definido; os valores ausentes vêm do período atual de São Paulo. Conectar uma conta salva os dados da conta e orienta o usuário a buscar as transações nesta tela, sem disparar a importação automaticamente. A API exige o período e rejeita a busca de todo o histórico.

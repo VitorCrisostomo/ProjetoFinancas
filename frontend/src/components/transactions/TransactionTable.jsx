@@ -1,5 +1,6 @@
 import TransactionRow from '../common/TransactionRow.jsx';
 import { categoryIcons } from '../../utils/category.jsx';
+import { groupTransactionsByDate } from '../../utils/transactionList.js';
 
 const allAvailableCategories = Object.keys(categoryIcons);
 
@@ -25,15 +26,22 @@ export default function TransactionTable({ displayedTransactions, filteredTransa
               <th className="col-actions">Ações</th>
             </tr>
           </thead>
-          <tbody>
-            {displayedTransactions.length === 0 ? (
+            {displayedTransactions.length === 0 ? <tbody>
               <tr>
                 <td colSpan="7" className="empty-state">
                   Nenhuma transação encontrada
                 </td>
               </tr>
-            ) : (
-              displayedTransactions.map((t) => (
+            </tbody> : groupTransactionsByDate(displayedTransactions).map((group) => (
+              <tbody key={group.date || 'undated'}>
+                <tr className="transaction-date-group">
+                  <th colSpan="7" scope="rowgroup">
+                    <span className="transaction-date-separator">
+                      {group.date ? <time dateTime={group.date}>{group.label}</time> : <span>{group.label}</span>}
+                    </span>
+                  </th>
+                </tr>
+                {group.transactions.map((t) => (
                 <TransactionRow
                   key={t.id}
                   transaction={t}
@@ -44,9 +52,9 @@ export default function TransactionTable({ displayedTransactions, filteredTransa
                   allAvailableCategories={allAvailableCategories}
                   categoryIcons={categoryIcons}
                 />
-              ))
-            )}
-          </tbody>
+                ))}
+              </tbody>
+            ))}
         </table>
       </div>
     </div>
