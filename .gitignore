@@ -1,3 +1,4 @@
 # Banco SQLite local
 backend/instance/*.db
 backend/.env
+__pycache__/
