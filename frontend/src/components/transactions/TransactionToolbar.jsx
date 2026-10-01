@@ -1,9 +1,7 @@
-import { useRef } from 'react';
 import Button from '../common/Button.jsx';
 
 export default function TransactionToolbar({ selectedIds, handleExecuteAssociation,
-  handleFileUpload, isUploading, isSyncing, openSyncModal, handleOpenNewModal }) {
-  const fileInput = useRef(null);
+  isSyncing, isAssociating, openSyncModal }) {
   return (
     <div className="page-header">
       <div>
@@ -12,41 +10,17 @@ export default function TransactionToolbar({ selectedIds, handleExecuteAssociati
       </div>
       
       <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-        {selectedIds.length === 2 && (
-          <Button variant="secondary" size="lg" onClick={handleExecuteAssociation}>
-            🔗 Associar (2)
+        {selectedIds.length >= 2 && (
+          <Button variant="secondary" size="lg" onClick={handleExecuteAssociation}
+            disabled={isAssociating || isSyncing}>
+            {isAssociating ? 'Associando...' : `🔗 Associar (${selectedIds.length})`}
           </Button>
         )}
 
-        <input
-          type="file"
-          accept=".csv"
-          ref={fileInput}
-          style={{ display: 'none' }}
-          onChange={async (event) => {
-            const input = event.target;
-            const file = input.files[0];
-            try { await handleFileUpload(file); }
-            finally { input.value = ''; }
-          }}
-        />
-        
-        <Button 
-          variant="secondary" 
-          size="lg" 
-          onClick={() => fileInput.current?.click()}
-          disabled={isUploading || isSyncing}
-        >
-          {isUploading ? '⏳ Importando...' : '📄 Importar CSV'}
-        </Button>
-
-        <Button variant="secondary" size="lg" onClick={openSyncModal} disabled={isSyncing || isUploading}>
+        <Button variant="secondary" size="lg" onClick={openSyncModal} disabled={isSyncing || isAssociating}>
           {isSyncing ? '⏳ Sincronizando...' : '🔄 Sincronizar'}
         </Button>
 
-        <Button variant="primary" size="lg" onClick={handleOpenNewModal}>
-          ➕ Nova Transação
-        </Button>
       </div>
     </div>
   );

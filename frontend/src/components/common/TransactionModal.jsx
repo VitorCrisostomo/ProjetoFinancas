@@ -3,49 +3,37 @@ import { categoryIcons } from "../../utils/category";
 import Button from "./Button";
 
 const TransactionModal = ({ isOpen, onClose, onSave, transactionToEdit }) => {
-  const defaultState = {
-    name: '',
-    category: 'Alimentação',
-    value: '',
-    type: 'expense',
-    date: new Date().toISOString().split('T')[0],
-  };
-
+  const categories = [...new Set([transactionToEdit?.category, ...Object.keys(categoryIcons)].filter(Boolean))];
   const [formData, setFormData] = useState(() => transactionToEdit ? {
     name: transactionToEdit.name,
     category: transactionToEdit.category,
-    value: transactionToEdit.value,
-    type: transactionToEdit.type,
     date: typeof transactionToEdit.date === 'string'
       ? transactionToEdit.date.split('T')[0] : transactionToEdit.date,
-  } : defaultState);
+  } : { name: '', category: '', date: '' });
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (formData.name && formData.value) {
-      onSave({
-        ...formData,
-        value: parseFloat(formData.value),
-      }, transactionToEdit?.id); 
-      
+    if (transactionToEdit && formData.name && formData.date && formData.category) {
+      onSave(formData, transactionToEdit.id);
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen || !transactionToEdit) return null;
 
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>{transactionToEdit ? 'Editar Transação' : 'Nova Transação'}</h2>
+          <h2>Editar Transação</h2>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
 
         <form onSubmit={handleSubmit} className="transaction-form">
           <div className="form-group">
-            <label>Descrição *</label>
+            <label>Nome *</label>
             <input
               type="text"
+              maxLength={120}
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="Ex: Supermercado"
@@ -55,37 +43,12 @@ const TransactionModal = ({ isOpen, onClose, onSave, transactionToEdit }) => {
 
           <div className="form-row">
             <div className="form-group">
-              <label>Tipo *</label>
-              <select
-                value={formData.type}
-                onChange={(e) => setFormData({ ...formData, type: e.target.value })}
-              >
-                <option value="expense">Despesa</option>
-                <option value="income">Receita</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label>Valor *</label>
-              <input
-                type="number"
-                step="0.01"
-                value={formData.value}
-                onChange={(e) => setFormData({ ...formData, value: e.target.value })}
-                placeholder="0.00"
-                required
-              />
-            </div>
-          </div>
-
-          <div className="form-row">
-            <div className="form-group">
               <label>Categoria *</label>
               <select
                 value={formData.category}
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
               >
-                {Object.keys(categoryIcons).map((cat) => (
+                {categories.map((cat) => (
                   <option key={cat} value={cat}>
                     {categoryIcons[cat]} {cat}
                   </option>
@@ -109,7 +72,7 @@ const TransactionModal = ({ isOpen, onClose, onSave, transactionToEdit }) => {
               Cancelar
             </Button>
             <Button variant="primary" type="submit">
-              {transactionToEdit ? 'Atualizar' : 'Salvar'}
+              Atualizar
             </Button>
           </div>
         </form>

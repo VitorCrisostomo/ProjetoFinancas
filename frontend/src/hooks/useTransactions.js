@@ -9,38 +9,23 @@ export default function useTransactions() {
   const { items: transactions, execute, ...state } = useCollection(loadTransactions);
   const reloadTransactions = () => execute(loadTransactions, (_previous, loaded) => loaded);
 
-  const addTransaction = (data) => execute(
-    async () => readResponse(await transactionService.createTransaction(data)),
-    (previous, saved) => [...previous, saved],
-  );
-
   const updateTransaction = (id, data) => execute(
     async () => readResponse(await transactionService.updateTransaction(id, data)),
     (previous, saved) => previous.map((item) => item.id === id ? saved : item),
   );
 
-  const deleteTransaction = (id) => execute(
-    async () => readResponse(await transactionService.deleteTransaction(id)),
-    (previous) => previous.filter((item) => item.id !== id),
+  const associateTransactions = (transactionIds, data) => execute(
+    async () => readResponse(await transactionService.associateTransactions(transactionIds, data)),
+    (previous, saved) => previous.filter((item) => !transactionIds.slice(1).includes(item.id))
+      .map((item) => item.id === saved.id ? saved : item),
   );
-
-  const associateTransactions = (keepId, removeId, data) => execute(
-    async () => readResponse(await transactionService.associateTransactions(keepId, removeId, data)),
-    (previous, saved) => previous.filter((item) => item.id !== removeId)
-      .map((item) => item.id === keepId ? saved : item),
-  );
-
-  const importTransactions = (file) => execute(async () => {
-    const result = await readResponse(await transactionService.importTransactions(file));
-    return { result, transactions: await loadTransactions() };
-  }, (_previous, data) => data.transactions).then((data) => data?.result);
 
   const syncTransactions = (options) => execute(async () => {
     const result = await readResponse(await syncPluggyTransactions(options));
-    // A resposta da Pluggy inclui apenas transações bancárias; recarrega também as manuais.
+    // Recarrega o histórico completo, incluindo associações e ajustes de saldo anterior.
     return { result, transactions: await loadTransactions() };
   }, (_previous, data) => data.transactions).then((data) => data?.result);
 
-  return { transactions, ...state, addTransaction, updateTransaction, deleteTransaction,
-    associateTransactions, importTransactions, syncTransactions, reloadTransactions };
+  return { transactions, ...state, updateTransaction,
+    associateTransactions, syncTransactions, reloadTransactions };
 }

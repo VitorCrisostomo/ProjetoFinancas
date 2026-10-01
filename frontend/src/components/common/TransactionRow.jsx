@@ -8,7 +8,6 @@ const TransactionRow = ({
   onSelect,
   onUpdateTransaction,
   onOpenEditModal,
-  onDeleteTransaction,
   allAvailableCategories,
   categoryIcons
 }) => {
@@ -60,16 +59,9 @@ const TransactionRow = ({
           <button
             className="action-btn edit-btn"
             onClick={() => onOpenEditModal(transaction)}
-            title="Editar transação completa"
+            title="Editar nome, data e categoria"
           >
             ✏️
-          </button>
-          <button
-            className="action-btn delete-btn"
-            onClick={() => onDeleteTransaction(transaction.id)}
-            title="Deletar"
-          >
-            🗑️
           </button>
         </>}
       </td>

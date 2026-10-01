@@ -1,7 +1,5 @@
-"""Valida transações, importa CSV e adapta dados da Pluggy."""
+"""Valida edições e associações e adapta dados da Pluggy."""
 
-import csv
-import io
 from datetime import date, datetime, time, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
@@ -12,8 +10,19 @@ from models.transaction import Transaction
 from repositories.transaction_repository import TransactionRepository
 
 
+def _contains_reserve_reference(value):
+    """Reconhece a referência em campos textuais, inclusive dados aninhados do banco."""
+    if isinstance(value, str):
+        return "RF RESERVA COFR" in " ".join(value.upper().split())
+    if isinstance(value, dict):
+        return any(_contains_reserve_reference(item) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_reserve_reference(item) for item in value)
+    return False
+
+
 class TransactionService:
-    """Regras de lançamentos manuais, importação e sincronização."""
+    """Regras de edição, associação, saldo anterior e sincronização bancária."""
 
     def __init__(self):
         self.repository = TransactionRepository()
@@ -78,53 +87,16 @@ class TransactionService:
             db.session.commit()
         return opening
 
-    def create_transaction(self, data):
-        """Valida os campos e cria um lançamento com data YYYY-MM-DD."""
-        value = data.get("value")
-        date_str = data.get("date")
-        name = data.get("name")
-        category = data.get("category")
-        description = data.get("description")
-        user_id = data.get("user_id")
+    def update_transaction(self, transaction_id, data, user_id=None):
+        """Permite editar somente nome, data e categoria, preservando os dados bancários."""
+        if not isinstance(data, dict) or not data or set(data) - {"name", "date", "category"}:
+            raise ValidationError("Somente nome, data e categoria podem ser atualizados.")
+        transaction = self.repository.get_by_id(transaction_id)
+        if not transaction or (user_id is not None and transaction.user_id != user_id):
+            raise NotFoundError("Transaction not found")
+        return self._update_transaction(transaction_id, data)
 
-        type_trans = data.get("type")
-
-        if not value:
-            raise ValidationError("Value is required")
-        if not date_str:
-            raise ValidationError("Date is required")
-
-        try:
-            date_obj = datetime.strptime(date_str, "%Y-%m-%d").date()
-        except ValueError:
-            raise ValidationError("Formato de data inválido. Use YYYY-MM-DD")
-
-        if not name:
-            raise ValidationError("Name is required")
-        if not user_id:
-            raise ValidationError("UserId is required")
-        if not category:
-            raise ValidationError("Category is required")
-
-        if not type_trans:
-            type_trans = "expense"
-
-        if not description:
-            description = ""
-
-        transaction = Transaction(
-            user_id=user_id,
-            value=value,
-            date=date_obj,
-            name=name,
-            category=category,
-            description=description,
-            type=type_trans,
-        )
-
-        return self.repository.create(transaction)
-
-    def update_transaction(self, transaction_id, data, commit=True):
+    def _update_transaction(self, transaction_id, data, commit=True):
         """Atualiza os campos fornecidos de uma transação existente."""
         transaction = self.repository.get_by_id(transaction_id)
 
@@ -135,7 +107,7 @@ class TransactionService:
             raise ValidationError("O saldo anterior automático é recalculado pela aplicação.")
 
         if "value" in data:
-            if not data["value"]:
+            if data["value"] is None or data["value"] == "" or isinstance(data["value"], bool):
                 raise ValidationError("Value is required")
             transaction.value = data["value"]
 
@@ -171,147 +143,67 @@ class TransactionService:
         return self.repository.update(transaction, commit=commit)
 
     def associate_transaction(self, user_id, keep_id, remove_id, updated_data):
-        """Associa atomicamente e protege os dois identificadores externos."""
-        if keep_id == remove_id:
-            raise ValidationError("Selecione duas transações diferentes para associar.")
-        t1 = self.repository.get_by_id(keep_id)
-        t2 = self.repository.get_by_id(remove_id)
+        """Mantém compatibilidade com a associação anterior de dois lançamentos."""
+        return self._associate_transactions(user_id, [keep_id, remove_id], updated_data)
 
-        if not t1 or t1.user_id != user_id or not t2 or t2.user_id != user_id:
+    def associate_transactions(self, user_id, transaction_ids, updated_data):
+        """Associa dois ou mais lançamentos e calcula seu saldo no backend."""
+        return self._associate_transactions(user_id, transaction_ids, updated_data, calculate=True)
+
+    def _associate_transactions(self, user_id, transaction_ids, updated_data, calculate=False):
+        if (
+            not isinstance(transaction_ids, list)
+            or len(transaction_ids) < 2
+            or any(type(transaction_id) is not int for transaction_id in transaction_ids)
+            or len(set(transaction_ids)) != len(transaction_ids)
+        ):
+            raise ValidationError("Selecione pelo menos duas transações diferentes para associar.")
+        if not isinstance(updated_data, dict):
+            raise ValidationError("Informe os dados da associação.")
+        transactions = [
+            self.repository.get_by_id(transaction_id) for transaction_id in transaction_ids
+        ]
+        if any(
+            transaction is None or transaction.user_id != user_id for transaction in transactions
+        ):
             raise NotFoundError("Transações não encontradas ou não pertencem ao usuário")
-
-        if t1.is_opening_balance or t2.is_opening_balance:
+        if any(transaction.is_opening_balance for transaction in transactions):
             raise ValidationError("O saldo anterior automático não pode ser associado.")
-
+        kept = transactions[0]
         try:
-            updated_transaction = self.update_transaction(keep_id, updated_data, commit=False)
-            self.repository.protect_from_sync(t1)
-            self.repository.protect_from_sync(t2)
-            db.session.delete(t2)
+            if calculate:
+                net = sum(
+                    (
+                        Decimal(str(transaction.value)).quantize(
+                            Decimal("0.01"), rounding=ROUND_HALF_UP
+                        )
+                        * (1 if transaction.type == "income" else -1)
+                        for transaction in transactions
+                    ),
+                    Decimal(0),
+                )
+                updated_data = {
+                    "name": " / ".join(transaction.name for transaction in transactions)[:120],
+                    "category": kept.category,
+                    "date": kept.date.strftime("%Y-%m-%d"),
+                    **{
+                        key: value
+                        for key, value in updated_data.items()
+                        if key in ("name", "category", "date")
+                    },
+                    "value": float(abs(net)),
+                    "type": "income" if net >= 0 else "expense",
+                }
+            updated_transaction = self._update_transaction(kept.id, updated_data, commit=False)
+            for transaction in transactions:
+                self.repository.protect_from_sync(transaction)
+            for transaction in transactions[1:]:
+                db.session.delete(transaction)
             db.session.commit()
             return updated_transaction
         except Exception:
             db.session.rollback()
             raise
-
-    def import_csv(self, file, user_id):
-        """Importa o extrato CSV; cada linha válida é persistida individualmente."""
-        if file.filename == "":
-            raise ValidationError("O arquivo recebido não possui nome.")
-
-        if not file.filename.endswith(".csv"):
-            raise ValidationError("O arquivo deve ser no formato .csv.")
-
-        try:
-            raw_data = file.stream.read()
-            # Tenta decodificar como UTF-8 primeiro, se der erro tenta Latin-1 (padrão Windows)
-            try:
-                decoded_content = raw_data.decode("utf-8-sig")
-            except UnicodeDecodeError:
-                decoded_content = raw_data.decode("latin-1")
-
-            stream = io.StringIO(decoded_content, newline=None)
-
-            # Descobre se o banco usou vírgula ou ponto-e-vírgula para separar as colunas
-            primeira_linha = stream.readline()
-            delimitador = ";" if ";" in primeira_linha else ","
-            stream.seek(0)
-
-            csv_reader = csv.DictReader(stream, delimiter=delimitador)
-
-            imported_count = 0
-
-            for row_number, row in enumerate(csv_reader, start=2):
-                clean_row = {}
-                for key, value in row.items():
-                    if key is not None:
-                        clean_key = key.replace("\ufeff", "").strip()
-                        clean_row[clean_key] = value
-
-                nome_lancamento = clean_row.get("Lançamento", "").strip()
-                raw_date = clean_row.get("Data", "").strip()
-
-                nome_limpo_para_teste = nome_lancamento.upper().replace(" ", "")
-
-                if (
-                    not nome_lancamento
-                    or nome_limpo_para_teste
-                    in ["SALDODODIA", "SALDOATUAL", "SALDO", "SALDOANTERIOR"]
-                    or raw_date == "00/00/0000"
-                ):
-                    continue
-
-                if not raw_date:
-                    raise ValidationError(
-                        f"A coluna 'Data' não foi encontrada ou está vazia na linha {row_number}."
-                    )
-
-                try:
-                    parsed_date = datetime.strptime(raw_date, "%d/%m/%Y").strftime("%Y-%m-%d")
-                except ValueError:
-                    raise ValidationError(
-                        f"Erro na linha {row_number}: A data '{raw_date}' não está no formato esperado (DD/MM/YYYY)."
-                    )
-
-                raw_value = clean_row.get("Valor", "0")
-                clean_value = raw_value.replace(".", "").replace(",", ".")
-
-                try:
-                    parsed_float = float(clean_value)
-                    float_value = abs(parsed_float)
-                except ValueError:
-                    parsed_float = 0.0
-                    float_value = 0.0
-
-                # Usa o tipo explícito do extrato; na ausência, usa o sinal do valor.
-                tipo_lancamento = clean_row.get("Tipo Lançamento", "").strip().lower()
-
-                if tipo_lancamento:
-                    if "entrada" in tipo_lancamento:
-                        transaction_type = "income"
-                    else:
-                        transaction_type = "expense"
-                else:
-                    if parsed_float >= 0:
-                        transaction_type = "income"
-                    else:
-                        transaction_type = "expense"
-
-                descricao = clean_row.get("Detalhes", "").strip()
-                doc = clean_row.get("N° documento", "").strip()
-                if doc:
-                    descricao = f"{descricao} (Doc: {doc})".strip()
-
-                data = {
-                    "user_id": user_id,
-                    "date": parsed_date,
-                    "name": nome_lancamento,
-                    "category": "Importado",
-                    "type": transaction_type,
-                    "value": float_value,
-                    "description": descricao,
-                }
-
-                self.create_transaction(data)
-                imported_count += 1
-
-            return imported_count
-
-        except ValidationError as ve:
-            raise ve
-        except Exception as e:
-            raise ValidationError(f"Erro inesperado ao processar arquivo: {str(e)}")
-
-    def delete_transaction(self, transaction_id):
-        transaction = self.repository.get_by_id(transaction_id)
-
-        if not transaction:
-            raise NotFoundError("Transaction not found")
-
-        if transaction.is_opening_balance:
-            raise ValidationError("O saldo anterior automático não pode ser excluído.")
-
-        self.repository.delete(transaction)
 
     def map_category(self, pluggy_category, transaction_type):
         """Mapeia a categoria externa; categorias desconhecidas retornam Extra."""
@@ -429,11 +321,19 @@ class TransactionService:
         # O valor absoluto é armazenado; income/expense representa a direção.
         amount = abs(amount_raw)
 
-        name = tx_data.get("description") or tx_data.get("merchant", {}).get(
-            "name", "Transação Pluggy"
+        merchant = merchant_field if isinstance(merchant_field, dict) else {}
+        name = (
+            tx_data.get("description")
+            or tx_data.get("name")
+            or merchant.get("name")
+            or "Transação Pluggy"
         )
         pluggy_category = tx_data.get("category")
-        category = self.map_category(pluggy_category, app_type)
+        category = (
+            "Investimentos"
+            if _contains_reserve_reference(tx_data)
+            else self.map_category(pluggy_category, app_type)
+        )
         description = tx_data.get("observation", "")
 
         if existing_tx:

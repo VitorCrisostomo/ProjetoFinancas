@@ -36,11 +36,12 @@ with patch.dict(
     from models.transaction_sync_protection import TransactionSyncProtection
     from models.user import User
     from repositories.transaction_repository import TransactionRepository
-    from routes import pluggy_route
+    from routes import pluggy_route, transaction_route
     from services.account_service import AccountService
     from services.transaction_service import TransactionService
 
 test_app.register_blueprint(pluggy_route.pluggy_routes)
+test_app.register_blueprint(transaction_route.transaction_routes)
 
 
 class TransactionSyncProtectionTests(unittest.TestCase):
@@ -103,11 +104,8 @@ class TransactionSyncProtectionTests(unittest.TestCase):
             transaction.id,
             {
                 "name": "Editado",
-                "value": 80,
                 "category": "Moradia",
                 "date": "2026-09-01",
-                "type": "expense",
-                "description": "Manual",
             },
         )
         before = transaction.to_json()
@@ -153,6 +151,289 @@ class TransactionSyncProtectionTests(unittest.TestCase):
         for external_id in ("first", "second"):
             self.assertIsNone(self.sync(external_id))
         self.assertEqual(Transaction.query.count(), 1)
+
+    def test_equal_income_and_expense_can_be_associated_with_zero_balance(self):
+        income = self.transaction("income", 100)
+        expense = self.transaction("expense", 100)
+        expense.type = "expense"
+        test_db.session.commit()
+        associated = self.service.associate_transaction(
+            1,
+            income.id,
+            expense.id,
+            {
+                "name": "Receita / Despesa",
+                "value": 0,
+                "type": "income",
+            },
+        )
+        self.assertEqual(associated.to_json()["value"], 0)
+        self.assertEqual(Transaction.query.count(), 1)
+        self.assertIsNone(self.sync("income"))
+        self.assertIsNone(self.sync("expense"))
+        self.service.update_transaction(associated.id, {"name": "Conferida"})
+        self.assertEqual(associated.value, 0)
+
+    def test_reassociated_zero_transactions_preserve_every_original_id_after_session_reload(self):
+        first = self.transaction("first", 100)
+        second = self.transaction("second", 100)
+        second.type = "expense"
+        test_db.session.commit()
+        self.service.associate_transaction(1, first.id, second.id, {"value": 0, "type": "income"})
+        third = self.transaction("third", 50)
+        # Troca a transação mantida: o resultado anterior passa a ser o lançamento excluído.
+        self.service.associate_transaction(1, third.id, first.id, {"value": 50, "type": "income"})
+        fourth = self.transaction("fourth", 50)
+        fourth.type = "expense"
+        test_db.session.commit()
+        result = self.service.associate_transaction(
+            1,
+            third.id,
+            fourth.id,
+            {
+                "value": 0,
+                "type": "income",
+                "name": "Todas associadas",
+            },
+        )
+        saved_id, saved_json = result.id, result.to_json()
+        test_db.session.remove()
+        for _ in range(2):
+            for external_id in ("first", "second", "third", "fourth"):
+                self.assertIsNone(self.sync(external_id))
+        self.assertEqual(Transaction.query.count(), 1)
+        self.assertEqual(TransactionSyncProtection.query.count(), 4)
+        self.assertEqual(test_db.session.get(Transaction, saved_id).to_json(), saved_json)
+        self.assertIsNotNone(self.sync("new"))
+
+    def test_update_still_rejects_missing_or_boolean_values(self):
+        transaction = self.transaction("original", 100)
+        for value in (None, "", False, True):
+            with self.subTest(value=value), self.assertRaises(ValidationError):
+                self.service.update_transaction(transaction.id, {"value": value})
+        self.assertEqual(transaction.value, 100)
+
+    def test_public_update_allows_only_metadata_and_preserves_financial_fields(self):
+        transaction = self.transaction("original", 100)
+        client = test_app.test_client()
+        for data in (
+            {"value": 0},
+            {"value": 80},
+            {"type": "expense"},
+            {"description": "Manual"},
+            {"name": "Inválida", "value": 99},
+            {},
+            [],
+        ):
+            with self.subTest(data=data):
+                response = client.patch(f"/update_transactions/{transaction.id}", json=data)
+                self.assertEqual(response.status_code, 400)
+                self.assertEqual(transaction.name, "Original")
+                self.assertEqual(transaction.value, 100)
+                self.assertEqual(transaction.type, "income")
+        response = client.patch(
+            f"/update_transactions/{transaction.id}",
+            json={
+                "name": "Conferida",
+                "date": "2026-09-30",
+                "category": "Moradia",
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.get_json())
+        self.assertEqual(transaction.name, "Conferida")
+        self.assertEqual(transaction.category, "Moradia")
+        self.assertEqual(transaction.value, 100)
+        self.assertEqual(transaction.type, "income")
+
+    def test_public_update_cannot_edit_another_users_transaction(self):
+        transaction = self.transaction("other")
+        test_db.session.add(User(id=2, name="Outro", email="outro@example.com", password="test"))
+        transaction.user_id = 2
+        test_db.session.commit()
+        response = test_app.test_client().patch(
+            f"/update_transactions/{transaction.id}",
+            json={
+                "name": "Não permitido",
+            },
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(transaction.name, "Original")
+
+    def test_creation_import_and_deletion_endpoints_are_removed(self):
+        transaction = self.transaction("existing")
+        client = test_app.test_client()
+        self.assertEqual(client.post("/create_transactions", json={"value": 100}).status_code, 404)
+        self.assertEqual(client.post("/transactions/import").status_code, 404)
+        self.assertEqual(client.delete(f"/transactions/{transaction.id}").status_code, 404)
+        self.assertEqual(Transaction.query.count(), 1)
+
+    def test_legacy_association_endpoint_cannot_override_the_calculated_balance(self):
+        first = self.transaction("first", 100)
+        second = self.transaction("second", 40)
+        second.type = "expense"
+        test_db.session.commit()
+        response = test_app.test_client().post(
+            "/transactions/associate",
+            json={
+                "keep_id": first.id,
+                "remove_id": second.id,
+                "updated_data": {"value": 9999, "type": "expense", "name": "Associadas"},
+            },
+        )
+        self.assertEqual(response.status_code, 200, response.get_json())
+        self.assertEqual(response.get_json()["value"], 60)
+        self.assertEqual(response.get_json()["type"], "income")
+
+    def test_batch_association_calculates_the_total_and_protects_every_identifier(self):
+        first = self.transaction("first", 100)
+        second = self.transaction("second", 40)
+        second.type = "expense"
+        third = self.transaction("third", 20)
+        third.type = "expense"
+        fourth = self.transaction("fourth", 10)
+        test_db.session.commit()
+        selected = [first.id, second.id, third.id, fourth.id]
+        result = test_app.test_client().post(
+            "/transactions/associate",
+            json={
+                "transaction_ids": selected,
+                "updated_data": {"value": 999, "type": "expense"},
+            },
+        )
+        self.assertEqual(result.status_code, 200, result.get_json())
+        self.assertEqual(result.get_json()["id"], first.id)
+        self.assertEqual(result.get_json()["value"], 50)
+        self.assertEqual(result.get_json()["type"], "income")
+        self.assertEqual(Transaction.query.count(), 1)
+        self.assertEqual(TransactionSyncProtection.query.count(), 4)
+        test_db.session.remove()
+        for external_id in ("first", "second", "third", "fourth"):
+            self.assertIsNone(self.sync(external_id))
+
+    def test_batch_association_can_be_zero_or_negative_and_associated_again(self):
+        first = self.transaction("first", 0.10)
+        second = self.transaction("second", 0.20)
+        third = self.transaction("third", 0.30)
+        third.type = "expense"
+        test_db.session.commit()
+        merged = self.service.associate_transactions(1, [first.id, second.id, third.id], {})
+        self.assertEqual(merged.value, 0)
+        fourth = self.transaction("fourth", 5)
+        fourth.type = "expense"
+        fifth = self.transaction("fifth", 2)
+        test_db.session.commit()
+        merged = self.service.associate_transactions(1, [first.id, fourth.id, fifth.id], {})
+        self.assertEqual(merged.value, 3)
+        self.assertEqual(merged.type, "expense")
+        self.assertEqual(TransactionSyncProtection.query.count(), 5)
+        for external_id in ("first", "second", "third", "fourth", "fifth"):
+            self.assertIsNone(self.sync(external_id))
+        self.assertEqual(Transaction.query.count(), 1)
+
+    def test_batch_association_rejects_invalid_selection_without_partial_changes(self):
+        first = self.transaction("first")
+        second = self.transaction("second")
+        opening = self.service.reconcile_opening_balance(test_db.session.get(Account, "account"))
+        for selected in (
+            [],
+            [first.id],
+            [first.id, first.id],
+            "invalid",
+            [True, second.id],
+            [first.id, opening.id],
+            [first.id, second.id, 999],
+        ):
+            with self.subTest(selected=selected):
+                response = test_app.test_client().post(
+                    "/transactions/associate",
+                    json={
+                        "transaction_ids": selected,
+                    },
+                )
+                self.assertIn(response.status_code, (400, 404))
+                self.assertEqual(Transaction.query.count(), 3)
+                self.assertEqual(TransactionSyncProtection.query.count(), 0)
+                self.assertEqual(first.value, 100)
+
+    def test_batch_association_rejects_another_users_transaction(self):
+        first = self.transaction("first")
+        second = self.transaction("second")
+        other = self.transaction("other")
+        test_db.session.add(User(id=2, name="Outro", email="outro@example.com", password="test"))
+        other.user_id = 2
+        test_db.session.commit()
+        response = test_app.test_client().post(
+            "/transactions/associate",
+            json={
+                "transaction_ids": [first.id, second.id, other.id],
+            },
+        )
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(Transaction.query.count(), 3)
+        self.assertEqual(TransactionSyncProtection.query.count(), 0)
+
+    def test_batch_association_rolls_back_the_entire_selection_if_commit_fails(self):
+        transactions = [self.transaction(f"transaction-{index}") for index in range(4)]
+        with patch.object(test_db.session, "commit", side_effect=RuntimeError("Falha simulada")):
+            with self.assertRaises(RuntimeError):
+                self.service.associate_transactions(1, [t.id for t in transactions], {})
+        self.assertEqual(Transaction.query.count(), 4)
+        self.assertEqual(TransactionSyncProtection.query.count(), 0)
+        self.assertTrue(all(t.value == 100 for t in transactions))
+
+    def test_reserve_reference_is_categorized_as_investment_in_text_and_nested_fields(self):
+        cases = [
+            {"description": "Aplicação RF RESERVA COFR automática"},
+            {"name": "rf reserva cofr", "description": None, "merchant": None},
+            {"observation": "Resgate rf   reserva\tcofr"},
+            {"descriptionRaw": "RF RESERVA COFR"},
+            {"merchant": {"name": "RF RESERVA COFR"}},
+            {"paymentData": {"receiver": {"name": "RF RESERVA COFR"}}},
+            {"details": [{"description": "RF RESERVA COFR"}, None, 1]},
+        ]
+        for index, fields in enumerate(cases):
+            with self.subTest(fields=fields):
+                transaction = self.service.sync_transaction(
+                    {
+                        "id": f"reserve-{index}",
+                        "amount": -100,
+                        "type": "DEBIT",
+                        "date": "2026-10-01",
+                        "description": "Banco",
+                        "category": "Transfers",
+                        **fields,
+                    },
+                    "account",
+                    1,
+                )
+                self.assertEqual(transaction.category, "Investimentos")
+                self.assertEqual(transaction.type, "expense")
+                self.assertEqual(transaction.value, 100)
+
+    def test_reserve_rule_updates_unedited_transactions_but_preserves_edited_categories(self):
+        transaction = self.transaction("reserve")
+        data = {"id": "reserve", "amount": 100, "description": "Resgate RF RESERVA COFR"}
+        self.assertEqual(
+            self.service.sync_transaction(data, "account", 1).category, "Investimentos"
+        )
+        self.service.update_transaction(transaction.id, {"category": "Extra"})
+        self.assertIsNone(self.service.sync_transaction(data, "account", 1))
+        self.assertEqual(transaction.category, "Extra")
+        self.assertEqual(Transaction.query.count(), 1)
+
+    def test_other_bank_transactions_keep_the_existing_category_mapping(self):
+        transaction = self.service.sync_transaction(
+            {
+                "id": "groceries",
+                "amount": -100,
+                "description": "Reserva diferente",
+                "category": "Groceries",
+                "merchant": None,
+            },
+            "account",
+            1,
+        )
+        self.assertEqual(transaction.category, "Alimentação")
 
     def test_unedited_transactions_still_update_and_new_transactions_are_created(self):
         original = self.transaction("unedited")
@@ -239,8 +520,8 @@ class TransactionSyncProtectionTests(unittest.TestCase):
         )
 
     def test_reconnection_rebases_using_the_new_balance_without_changing_edited_transactions(self):
-        transaction = self.transaction("edited", 100)
-        self.service.update_transaction(transaction.id, {"name": "Preservada", "value": 80})
+        transaction = self.transaction("edited", 80)
+        self.service.update_transaction(transaction.id, {"name": "Preservada"})
         account_service = AccountService()
         account_service.sync_account({"id": "account", "balance": 1000}, 1)
         opening = Transaction.query.filter_by(external_id="opening-balance:account").one()
@@ -306,8 +587,9 @@ class TransactionSyncProtectionTests(unittest.TestCase):
         transaction = self.transaction("normal")
         with self.assertRaises(ValidationError):
             self.service.update_transaction(opening.id, {"value": 200})
-        with self.assertRaises(ValidationError):
-            self.service.delete_transaction(opening.id)
+        self.assertEqual(
+            test_app.test_client().delete(f"/transactions/{opening.id}").status_code, 404
+        )
         with self.assertRaises(ValidationError):
             self.service.associate_transaction(1, transaction.id, opening.id, {"value": 200})
         self.assertEqual(Transaction.query.count(), 2)
@@ -320,8 +602,8 @@ class TransactionSyncProtectionTests(unittest.TestCase):
         self.assertEqual(Transaction.query.count(), 0)
 
     def test_monthly_sync_refreshes_balance_and_rebases_without_overwriting_edits(self):
-        edited = self.transaction("edited", 100)
-        self.service.update_transaction(edited.id, {"name": "Manual", "value": 80})
+        edited = self.transaction("edited", 80)
+        self.service.update_transaction(edited.id, {"name": "Manual"})
         self.service.reconcile_opening_balance(test_db.session.get(Account, "account"))
         with (
             patch.object(
