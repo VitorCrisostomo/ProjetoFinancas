@@ -3,6 +3,15 @@ export const months = [
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ];
 
+export const getCurrentYear = (now = new Date()) => new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/Sao_Paulo', year: 'numeric',
+}).format(now);
+
+export const normalizeTransactionPeriod = (month, year, now = new Date()) => ({
+  month,
+  year: month !== 'all' && year === 'all' ? getCurrentYear(now) : year,
+});
+
 // Preserva a data do lançamento, sem deslocar dias por conversão de fuso horário.
 export const getTransactionDateParts = (date) => {
   if (typeof date !== 'string') return null;
@@ -23,7 +32,8 @@ export const getTransactionYears = (transactions) => [...new Set(
     .filter((year) => year !== undefined),
 )].sort((a, b) => b - a);
 
-export const filterTransactionsByPeriod = (transactions, month = 'all', year = 'all') => {
+export const filterTransactionsByPeriod = (transactions, month = 'all', year = 'all', now = new Date()) => {
+  ({ month, year } = normalizeTransactionPeriod(month, year, now));
   if (month === 'all' && year === 'all') return transactions;
   return transactions.filter((transaction) => {
     const date = getTransactionDateParts(transaction.date);

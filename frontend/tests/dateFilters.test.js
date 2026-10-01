@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { filterTransactionsByPeriod, getTransactionDateParts, getTransactionYears } from '../src/utils/transactionPeriod.js';
+import { filterTransactionsByPeriod, getTransactionDateParts, getTransactionYears, normalizeTransactionPeriod } from '../src/utils/transactionPeriod.js';
 import { getTransactionSummary } from '../src/utils/transactionSummary.js';
 
 const transactions = [
@@ -12,11 +12,19 @@ const transactions = [
 ];
 const ids = (items) => items.map((item) => item.id);
 
-test('filtra por mês e ano, só por mês, só por ano e todo o histórico', () => {
+test('filtra por mês e ano, mês com ano atual automático, só por ano e todo o histórico', () => {
   assert.deepEqual(ids(filterTransactionsByPeriod(transactions, '10', '2026')), [3, 4]);
-  assert.deepEqual(ids(filterTransactionsByPeriod(transactions, '10', 'all')), [1, 3, 4]);
+  assert.deepEqual(ids(filterTransactionsByPeriod(transactions, '10', 'all', new Date('2026-10-01T12:00:00Z'))), [3, 4]);
   assert.deepEqual(ids(filterTransactionsByPeriod(transactions, 'all', '2026')), [2, 3, 4, 5]);
   assert.deepEqual(ids(filterTransactionsByPeriod(transactions)), [1, 2, 3, 4, 5]);
+});
+
+test('mês exige um ano, preserva o ano escolhido e usa o ano de São Paulo nas fronteiras', () => {
+  const now = new Date('2026-01-01T01:00:00Z');
+  assert.deepEqual(normalizeTransactionPeriod('9', 'all', now), { month: '9', year: '2025' });
+  assert.deepEqual(normalizeTransactionPeriod('9', '2024', now), { month: '9', year: '2024' });
+  assert.deepEqual(normalizeTransactionPeriod('all', '2024', now), { month: 'all', year: '2024' });
+  assert.deepEqual(normalizeTransactionPeriod('all', 'all', now), { month: 'all', year: 'all' });
 });
 
 test('Overview calcula receitas, despesas, saldo e categorias somente do período', () => {
