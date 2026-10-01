@@ -18,7 +18,7 @@ export default function TransactionPeriodFilter({ period, onChange }) {
         <label htmlFor={`${id}-year`}>Ano</label>
         <select id={`${id}-year`} className="filter-select" value={period.year}
           onChange={(event) => { period.setYear(event.target.value); onChange?.(); }}>
-          <option value="all">Todos os anos</option>
+          {period.month === 'all' && <option value="all">Todos os anos</option>}
           {period.years.map((year) => <option key={year} value={year}>{year}</option>)}
         </select>
       </div>

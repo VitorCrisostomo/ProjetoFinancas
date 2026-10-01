@@ -50,7 +50,7 @@ Na pasta `frontend`, execute `npm run build`, `npm run lint` e `npm test`. Ao al
 
 Cada página mantém seus próprios filtros de mês e ano em `useTransactionPeriod`. A lógica comum fica em `utils/transactionPeriod.js`; a interface dos seletores fica em `TransactionPeriodFilter`.
 
-O padrão mostra todo o histórico. É possível selecionar um ano inteiro, um mês em todos os anos ou a combinação de mês e ano. Os anos disponíveis são extraídos do histórico completo. As datas exibidas e os filtros usam a data de calendário recebida da API, sem conversão de fuso.
+O padrão mostra todo o histórico. É possível selecionar um ano inteiro ou a combinação de mês e ano. Ao selecionar um mês sem ano definido, o ano atual de São Paulo é preenchido automaticamente; um ano escolhido anteriormente é preservado. A opção Todos os anos fica disponível somente com Todos os meses. A lista de anos inclui o histórico e o ano atual, mesmo sem lançamentos. As datas exibidas e os filtros usam a data de calendário recebida da API, sem conversão de fuso.
 
 Em Transações, o período combina com categoria e tipo; ao selecionar um mês, todas as linhas correspondentes são exibidas. Sem mês selecionado, permanece o limite visual de 50 linhas. Mudar um filtro limpa a seleção para associação. Transações e Visão geral incluem o saldo anterior quando há um ano definido: o histórico anterior ao início do mês (ou do ano inteiro) é somado às movimentações filtradas. Mês sem ano não possui saldo anterior único. Receitas, despesas, gráficos e taxa de economia do Overview consideram somente o período. Períodos sem lançamentos mantêm o saldo anterior quando aplicável. Os filtros não alteram os dados persistidos.
 
