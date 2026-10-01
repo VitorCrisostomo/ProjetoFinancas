@@ -18,6 +18,7 @@ const TransactionsPage = ({
   const [filterType, setFilterType] = useState('all');
   const [isUploading, setIsUploading] = useState(false); 
   const [selectedIds, setSelectedIds] = useState([]);
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const categories = ['all', ...new Set(transactions.map((t) => t.category))];
   const types = ['all', 'income', 'expense'];
@@ -92,6 +93,16 @@ const TransactionsPage = ({
     setTransactionToEdit(null);
   };
 
+  const handleOpenNewModal = () => {
+    setTransactionToEdit(null);
+    setModalOpen(true);
+  };
+
+  const handleOpenEditModal = (transaction) => {
+    setTransactionToEdit(transaction);
+    setModalOpen(true);
+  };
+
   const handleFileUpload = async (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -129,6 +140,44 @@ const TransactionsPage = ({
       event.target.value = null; 
     }
   };
+
+  const handleSyncTransactions = async () => {
+  setIsSyncing(true);
+  try {
+    const token = localStorage.getItem('token');
+    const response = await fetch('http://localhost:5000/pluggy/transactions/sync', {
+      method: 'POST',
+      headers: { 
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}` 
+      }
+    });
+
+    if (response.ok) {
+      const result = await response.json();
+      alert(result.message);
+      
+      // Opção A: Se você tiver uma função para buscar as transações da API novamente
+      if (typeof fetchTransactions === 'function') {
+        fetchTransactions();
+      }
+      
+      // Opção B: Ou se preferir atualizar o estado local diretamente com o retorno:
+      // if (typeof setTransactions === 'function') {
+      //   setTransactions(result.transactions);
+      // }
+
+    } else {
+      const errorData = await response.json();
+      alert(`Erro ao sincronizar transações: ${errorData.message}`);
+    }
+  } catch (error) {
+    console.error("Erro na requisição de sincronização:", error);
+    alert("Falha de conexão com o servidor.");
+  } finally {
+    setIsSyncing(false);
+  }
+};
 
   return (
     <div className="page-content">
