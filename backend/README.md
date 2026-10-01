@@ -50,16 +50,13 @@ Requisições JSON usam `Content-Type: application/json`. As rotas com JWT exige
 | POST | `/accounts/sync` | Sim | Dados da conta externa, incluindo `id` |
 | DELETE | `/accounts/<account_id>` | Sim | — |
 | GET | `/transactions` | Sim | — |
-| POST | `/create_transactions` | Sim | `name`, `value`, `date`, `category`; `type` e `description` opcionais |
-| PATCH | `/update_transactions/<transaction_id>` | Sim | Campos da transação a atualizar |
-| DELETE | `/transactions/<transaction_id>` | Sim | — |
-| POST | `/transactions/associate` | Sim | `keep_id`, `remove_id`, `updated_data` |
-| POST | `/transactions/import` | Sim | Arquivo no campo multipart `file` |
+| PATCH | `/update_transactions/<transaction_id>` | Sim | `name`, `date` e `category`; demais campos são rejeitados |
+| POST | `/transactions/associate` | Sim | `transaction_ids` (dois ou mais IDs), `updated_data` opcional; aceita também o formato anterior com `keep_id` e `remove_id` |
 | GET | `/pluggy/connect_token` | Sim | — |
 | POST | `/pluggy/accounts/sync` | Sim | `itemId` |
 | POST | `/pluggy/transactions/sync` | Sim | `mode: "month"`, `month`, `year` obrigatórios |
 
-Criação de usuários, criação de transações e importação CSV retornam 201 no sucesso; as demais rotas retornam 200. Erros derivados de `APIError` retornam `{"message": "..."}` com o status associado. Erros do Flask e do JWT seguem os handlers das respectivas bibliotecas.
+Criação de usuários retorna 201 no sucesso; as demais rotas retornam 200. Erros derivados de `APIError` retornam `{"message": "..."}` com o status associado. Erros do Flask e do JWT seguem os handlers das respectivas bibliotecas.
 
 ### Cadastro e autenticação
 
@@ -91,22 +88,15 @@ Ao iniciar `python main.py`, o repositório cria a tabela de proteção se estiv
 
 Para executar os testes, sem rede ou credenciais, use `python -B -m unittest discover -s tests -v` na pasta `backend/`. Os testes de proteção usam SQLite em memória e exigem Flask e Flask-SQLAlchemy; não acessam o banco configurado em `.env`.
 
-### Transações e CSV
+### Edição e associação de transações
 
-Lançamentos manuais e atualizações usam datas `YYYY-MM-DD`. O tipo padrão na criação é `expense`; receitas usam `income`. Na sincronização bancária, o valor é armazenado como absoluto e o tipo representa sua direção.
+Atualizações permitem somente `name`, `date` e `category`, com datas `YYYY-MM-DD`, e validam o usuário proprietário do lançamento. Alterações de valor, tipo, descrição e outros campos são rejeitadas antes de modificar o banco. Transações bancárias são criadas pela sincronização da Pluggy, com valor absoluto e tipo representando a direção. As rotas de criação manual, importação CSV e exclusão individual foram removidas; os registros históricos permanecem salvos.
 
-A importação aceita UTF-8 com ou sem BOM e Latin-1 e detecta vírgula ou ponto e vírgula como separador. O formato implementado usa as seguintes colunas:
+Na sincronização, a referência `RF RESERVA COFR` em qualquer campo textual do lançamento, inclusive descrições e dados aninhados, define a categoria `Investimentos`. A comparação ignora maiúsculas/minúsculas e espaços repetidos. A regra tem prioridade sobre o mapeamento da categoria bancária, mas não modifica a direção ou o valor da movimentação e não se aplica a lançamentos protegidos por edição ou associação.
 
-| Coluna | Uso |
-|---|---|
-| `Lançamento` | Nome; linhas sem nome e linhas de saldo são ignoradas. |
-| `Data` | Data `DD/MM/YYYY`; `00/00/0000` é ignorado. |
-| `Valor` | Formato brasileiro, como `-1.234,56`. |
-| `Tipo Lançamento` | Opcional; texto contendo `entrada` indica receita, os demais indicam despesa. Na ausência, utiliza o sinal do valor. |
-| `Detalhes` | Descrição opcional. |
-| `N° documento` | Identificador opcional acrescentado à descrição. |
+Associações podem resultar em valor zero quando receita e despesa se anulam. A edição mantém esse valor sem enviá-lo novamente ao backend. Os identificadores externos protegidos permanecem registrados após associações sucessivas, inclusive quando o resultado de uma associação anterior é excluído ao ser incorporado em outra.
 
-Os lançamentos importados recebem a categoria `Importado`. Cada linha é persistida separadamente; se uma linha posterior falhar, as anteriores permanecem gravadas. Valores zero são rejeitados pela validação de criação existente.
+A associação múltipla recebe `transaction_ids` em ordem de seleção, mantém o primeiro lançamento e exclui os demais em uma única confirmação no banco. O backend calcula receitas menos despesas em centavos; ignora valor e tipo enviados pelo cliente. Por padrão, a descrição combina os nomes (até 120 caracteres) e mantém data e categoria do primeiro lançamento. Todos os IDs devem ser distintos e pertencer ao usuário; ajustes automáticos não podem ser associados. Falhas desfazem todas as alterações e proteções da operação.
 
 ## Lint, formatação e comentários
 

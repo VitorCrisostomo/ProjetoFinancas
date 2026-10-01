@@ -36,13 +36,15 @@ Os hooks de dados retornam resultados ou lançam erros. Os controles de interfac
 
 ## Serviços
 
-Os serviços retornam `Response`. `readResponse`, em `services/api.js`, interpreta respostas nos hooks de dados e converte falhas HTTP em erros. O cliente comum adiciona o JWT e serializa JSON; arquivos CSV usam `FormData`.
+Os serviços retornam `Response`. `readResponse`, em `services/api.js`, interpreta respostas nos hooks de dados e converte falhas HTTP em erros. O cliente comum adiciona o JWT e serializa JSON.
+
+Transações são criadas pela sincronização mensal da Pluggy e pelo ajuste automático de saldo anterior. A interface oferece sincronização, associação e edição de nome, data e categoria. Valor e tipo não fazem parte do formulário nem da requisição de edição; o backend rejeita campos adicionais. Criação manual, importação CSV e exclusão individual foram removidas. Lançamentos anteriores permanecem salvos, incluindo os antigos registros manuais.
 
 `VITE_API_URL` configura o endereço do backend; consulte `.env.example`.
 
 ## Verificação
 
-Na pasta `frontend`, execute `npm run build`, `npm run lint` e `npm test`. Ao alterar fluxos, valide também login, navegação, importação, sincronização e edição no navegador com o backend disponível.
+Na pasta `frontend`, execute `npm run build`, `npm run lint` e `npm test`. Ao alterar fluxos, valide também login, navegação, associação, sincronização e edição no navegador com o backend disponível.
 
 ## Períodos em Transações e Visão geral
 
@@ -57,6 +59,10 @@ Em Transações, o período combina com categoria e tipo; ao selecionar um mês,
 O botão Sincronizar em Transações abre `SyncTransactionsModal`, um diálogo nativo com navegação por teclado, foco contido e fechamento por Escape. A sincronização é apenas manual, para um mês específico escolhido com o controle de mês e ano do navegador. O campo usa o período dos filtros quando definido; os valores ausentes vêm do período atual de São Paulo. Conectar uma conta salva os dados da conta e orienta o usuário a buscar as transações nesta tela, sem disparar a importação automaticamente. A API exige o período e rejeita a busca de todo o histórico.
 
 `utils/transactionSync.js` monta as opções enviadas ao backend. `useTransactionControls` controla abertura, carregamento e erros. Durante a sincronização, os campos e o fechamento são bloqueados; uma falha mantém o modal aberto. Ao concluir, `useTransactions` recarrega a lista completa, preservando também os lançamentos manuais. A seleção de sincronização não modifica os filtros de visualização.
+
+## Associação de transações
+
+A seleção para associação permite dois ou mais lançamentos. O botão mostra o total selecionado e a confirmação lista receitas e despesas com sinal. `transactionAssociation.js` prepara o saldo em centavos e os metadados do primeiro lançamento selecionado. `useTransactions` envia todos os IDs em uma única requisição e remove da lista os lançamentos incorporados. Durante a associação, o botão bloqueia envios repetidos; o backend calcula o resultado e protege todos os identificadores externos.
 
 ## Ajuste automático de saldo anterior
 

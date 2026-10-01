@@ -29,11 +29,8 @@ export default function AuthenticatedDashboard({ user, onLogout }) {
     overview: { transactions },
     transactions: {
       transactions,
-      onAddTransaction: transactionData.addTransaction,
-      onDeleteTransaction: transactionData.deleteTransaction,
       onUpdateTransaction: transactionData.updateTransaction,
       onAssociateTransactions: transactionData.associateTransactions,
-      onImportTransactions: transactionData.importTransactions,
       onSyncTransactions: syncTransactions,
     },
     accounts: {

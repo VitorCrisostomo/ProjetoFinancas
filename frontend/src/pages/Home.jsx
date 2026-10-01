@@ -74,10 +74,6 @@ const HomePage = ({ transactions }) => {
         <h2>Ações Rápidas</h2>
         <div className="shortcuts">
           <div className="shortcut-card">
-            <span className="shortcut-icon">➕</span>
-            <span>Adicionar Transação</span>
-          </div>
-          <div className="shortcut-card">
             <span className="shortcut-icon">📊</span>
             <span>Ver Relatório</span>
           </div>

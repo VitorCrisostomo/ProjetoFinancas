@@ -14,11 +14,9 @@ export default function TransactionsPage(props) {
       <TransactionToolbar
         selectedIds={controls.selectedIds}
         handleExecuteAssociation={controls.handleExecuteAssociation}
-        handleFileUpload={controls.handleFileUpload}
-        isUploading={controls.isUploading}
         isSyncing={controls.isSyncing}
+        isAssociating={controls.isAssociating}
         openSyncModal={controls.openSyncModal}
-        handleOpenNewModal={controls.handleOpenNewModal}
       />
       <TransactionFilters
         period={controls.period}
@@ -58,7 +56,6 @@ export default function TransactionsPage(props) {
         handleSelectTransaction={controls.handleSelectTransaction}
         handleUpdateCategory={controls.handleUpdateCategory}
         handleOpenEditModal={controls.handleOpenEditModal}
-        handleDeleteTransaction={controls.handleDeleteTransaction}
       />
       {controls.syncModalOpen && <SyncTransactionsModal
         period={controls.period}

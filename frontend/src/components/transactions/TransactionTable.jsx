@@ -4,8 +4,7 @@ import { categoryIcons } from '../../utils/category.jsx';
 const allAvailableCategories = Object.keys(categoryIcons);
 
 export default function TransactionTable({ displayedTransactions, filteredTransactions,
-  selectedIds, handleSelectTransaction, handleUpdateCategory, handleOpenEditModal,
-  handleDeleteTransaction }) {
+  selectedIds, handleSelectTransaction, handleUpdateCategory, handleOpenEditModal }) {
   return (
     <div className="section">
       <div className="transactions-count">
@@ -42,7 +41,6 @@ export default function TransactionTable({ displayedTransactions, filteredTransa
                   onSelect={handleSelectTransaction}
                   onUpdateTransaction={handleUpdateCategory}
                   onOpenEditModal={handleOpenEditModal}
-                  onDeleteTransaction={handleDeleteTransaction}
                   allAvailableCategories={allAvailableCategories}
                   categoryIcons={categoryIcons}
                 />
