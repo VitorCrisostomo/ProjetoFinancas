@@ -215,6 +215,60 @@ class TransactionService:
 
         self.repository.delete(transaction)
 
+    def map_category(self, pluggy_category, transaction_type):
+        category_map = {
+            # Alimentação
+            "Groceries": "Alimentação",
+            "Food delivery": "Alimentação",
+            "Eating out": "Alimentação",
+            "Food and drinks": "Alimentação",
+
+            # Moradia
+            "Housing": "Moradia",
+            "Houseware": "Moradia",
+            "Services": "Moradia",
+
+            # Transporte
+            "Taxi and ride-hailing": "Transporte",
+            "Gas stations": "Transporte",
+            "Parking": "Transporte",
+            "Automotive": "Transporte",
+            "Vehicle maintenance": "Transporte",
+
+            # Entretenimento
+            "Shopping": "Compras",
+            "Clothing": "Compras",
+            "Tickets": "Entretenimento",
+            "Leisure": "Entretenimento",
+            "Cinema, theater and concerts": "Entretenimento",
+
+            # Saúde
+            "Pharmacy": "Saúde",
+            "Pet supplies and vet": "Saúde",
+
+            # Educação
+            "Bookstore": "Educação",
+
+            # Receitas
+            "Entrepreneurial activities": "Extra",
+
+            # Categorias que não representam uma despesa específica
+            "Transfer - PIX": "Transferência",
+            "Third party transfer - PIX": "Transferência",
+            "Transfers": "Transferência",
+            "Same person transfer": "Transferência",
+            "Fixed income": "Extra",
+
+            # Outros tipos de despesa
+            "Bank fees": "Taxas e Impostos",
+            "Late payment and overdraft costs": "Taxas e Impostos",
+            "Telecommunications": "Taxas e Impostos",
+            "Internet": "Taxas e Impostos",
+            "Digital services": "Entretenimento",
+        }
+
+        return category_map.get(pluggy_category, "Extra")
+
     def sync_transaction(self, tx_data, internal_account_id, user_id):
         """Salva a transação garantindo valores absolutos, tipagem correta para cartões e idempotência."""
         pluggy_tx_id = tx_data.get("id")
@@ -269,7 +323,8 @@ class TransactionService:
         amount = abs(amount_raw)
         
         name = tx_data.get("description") or tx_data.get("merchant", {}).get("name", "Transação Pluggy")
-        category = tx_data.get("category", "Outros") or "Outros"
+        pluggy_category = tx_data.get("category")
+        category = self.map_category(pluggy_category, app_type)
         description = tx_data.get("observation", "")
 
         if existing_tx:
