@@ -42,4 +42,12 @@ Os serviços retornam `Response`. `readResponse`, em `services/api.js`, interpre
 
 ## Verificação
 
-Na pasta `frontend`, execute `npm run build` e `npm run lint`. Ao alterar fluxos, valide também login, navegação, importação, sincronização e edição no navegador com o backend disponível.
+Na pasta `frontend`, execute `npm run build`, `npm run lint` e `npm test`. Ao alterar fluxos, valide também login, navegação, importação, sincronização e edição no navegador com o backend disponível.
+
+## Períodos em Transações e Visão geral
+
+Cada página mantém seus próprios filtros de mês e ano em `useTransactionPeriod`. A lógica comum fica em `utils/transactionPeriod.js`; a interface dos seletores fica em `TransactionPeriodFilter`.
+
+O padrão mostra todo o histórico. É possível selecionar um ano inteiro, um mês em todos os anos ou a combinação de mês e ano. Os anos disponíveis são extraídos do histórico completo. As datas exibidas e os filtros usam a data de calendário recebida da API, sem conversão de fuso.
+
+Em Transações, o período combina com categoria e tipo antes do limite visual de 50 linhas; mudar um filtro limpa a seleção para associação. Em Visão geral, todos os indicadores e gráficos são calculados sobre o período escolhido, incluindo receitas menos despesas como saldo do período. Esse resultado não é um saldo bancário acumulado. Períodos sem lançamentos exibem valores zero e uma mensagem. Os filtros não alteram os dados persistidos.

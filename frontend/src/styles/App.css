@@ -536,6 +536,7 @@
 
   .filters-section {
     display: flex;
+    flex-wrap: wrap;
     gap: 1rem;
     margin-bottom: 1.5rem;
   }
@@ -545,6 +546,11 @@
     flex-direction: column;
     gap: 0.5rem;
     flex: 1;
+    min-width: min(100%, 150px);
+  }
+
+  .period-reset {
+    align-self: flex-end;
   }
 
   .filter-select {

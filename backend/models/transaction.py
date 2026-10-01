@@ -1,9 +1,13 @@
+"""Define as transações manuais, importadas e sincronizadas."""
+
 from config import db
-from datetime import datetime
+
 
 class Transaction(db.Model):
-    __tablename__ = 'transactions'
-    
+    """Lançamento financeiro associado ao usuário e, opcionalmente, à conta."""
+
+    __tablename__ = "transactions"
+
     id = db.Column(db.Integer, primary_key=True)
     external_id = db.Column(db.String(100), unique=True, nullable=True)
     account_id = db.Column(db.Integer, db.ForeignKey("accounts.id"), nullable=True)
@@ -16,6 +20,7 @@ class Transaction(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
 
     def to_json(self):
+        """Retorna os campos utilizados nas respostas JSON da API."""
         return {
             "id": self.id,
             "external_id": self.external_id,
@@ -26,5 +31,5 @@ class Transaction(db.Model):
             "category": self.category,
             "description": self.description,
             "type": self.type,
-            "user_id": self.user_id
+            "user_id": self.user_id,
         }

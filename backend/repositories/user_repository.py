@@ -1,8 +1,11 @@
-from models.user import User
+"""Consulta e persiste usuários utilizando a sessão do SQLAlchemy."""
+
 from config import db
+from models.user import User
 
 
 class UserRepository:
+    """Operações de usuários; cada escrita confirma a sessão atual."""
 
     def get_all(self):
         return User.query.all()

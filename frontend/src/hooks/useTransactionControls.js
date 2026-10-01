@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import formatCurrency from '../utils/currency.jsx';
+import useTransactionPeriod from './useTransactionPeriod.js';
 
 export default function useTransactionControls({ 
   transactions, 
@@ -17,11 +18,12 @@ export default function useTransactionControls({
   const [isUploading, setIsUploading] = useState(false); 
   const [selectedIds, setSelectedIds] = useState([]);
   const [isSyncing, setIsSyncing] = useState(false);
+  const period = useTransactionPeriod(transactions);
 
   const categories = ['all', ...new Set(transactions.map((t) => t.category))];
 
   // Filtragem
-  const filteredTransactions = transactions.filter((t) => {
+  const filteredTransactions = period.transactions.filter((t) => {
     const categoryMatch = filterCategory === 'all' || t.category === filterCategory;
     const typeMatch = filterType === 'all' || t.type === filterType;
     return categoryMatch && typeMatch;
@@ -156,7 +158,8 @@ export default function useTransactionControls({
 
   return {
     modalOpen, transactionToEdit, filterCategory, setFilterCategory,
-    filterType, setFilterType, isUploading, isSyncing, selectedIds,
+    filterType, setFilterType, isUploading, isSyncing, selectedIds, period,
+    clearSelection: () => setSelectedIds([]),
     categories, filteredTransactions, displayedTransactions,
     handleSelectTransaction, handleExecuteAssociation, handleSave,
     handleDeleteTransaction, handleUpdateCategory, handleOpenNewModal,

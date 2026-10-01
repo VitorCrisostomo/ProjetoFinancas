@@ -1,10 +1,13 @@
 import { getTransactionSummary } from '../utils/transactionSummary.js';
+import useTransactionPeriod from '../hooks/useTransactionPeriod.js';
+import TransactionPeriodFilter from '../components/common/TransactionPeriodFilter.jsx';
 import Card from "../components/common/Card";
 import formatCurrency from "../utils/currency";
 import { categoryIcons, categoryColors } from "../utils/category";
 
 const OverviewPage = ({ transactions }) => {
-  const { totalIncome, totalExpense, balance, expensesByCategory } = getTransactionSummary(transactions);
+  const period = useTransactionPeriod(transactions);
+  const { totalIncome, totalExpense, balance, expensesByCategory } = getTransactionSummary(period.transactions);
   const maxExpense = Math.max(...Object.values(expensesByCategory), 1);
 
   return (
@@ -14,10 +17,17 @@ const OverviewPage = ({ transactions }) => {
         <p>Análise detalhada do seu desempenho financeiro</p>
       </div>
 
+      <div className="filters-section">
+        <TransactionPeriodFilter period={period} />
+      </div>
+      {period.transactions.length === 0 && (
+        <p role="status">Nenhuma transação encontrada no período selecionado.</p>
+      )}
+
       {/* Indicadores Principais */}
       <div className="cards-grid large">
         <Card
-          title="Saldo Total"
+          title={period.isFiltered ? 'Saldo do período' : 'Saldo Total'}
           value={formatCurrency(balance)}
           icon="💰"
           color={balance >= 0 ? '#10b981' : '#ef4444'}
