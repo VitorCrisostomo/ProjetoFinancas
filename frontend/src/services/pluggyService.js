@@ -5,5 +5,5 @@ export const fetchConnectToken = () => apiRequest('/pluggy/connect_token');
 export const syncPluggyAccounts = (itemId) =>
     apiRequest('/pluggy/accounts/sync', { method: 'POST', data: { itemId } });
 
-export const syncPluggyTransactions = () =>
-    apiRequest('/pluggy/transactions/sync', { method: 'POST', data: {} });
+export const syncPluggyTransactions = (options) =>
+    apiRequest('/pluggy/transactions/sync', { method: 'POST', data: options });

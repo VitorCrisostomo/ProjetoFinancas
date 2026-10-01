@@ -1,10 +1,12 @@
 """Comunica o backend com a API da Pluggy."""
 
 import os
+from calendar import monthrange
+from datetime import date
 
 import requests
 
-from exceptions.api_errors import APIError
+from exceptions.api_errors import APIError, ValidationError
 
 
 class PluggyService:
@@ -20,7 +22,10 @@ class PluggyService:
         url = f"{self.base_url}/auth"
         payload = {"clientId": self.client_id, "clientSecret": self.client_secret}
 
-        response = requests.post(url, json=payload)
+        try:
+            response = requests.post(url, json=payload, timeout=30)
+        except requests.RequestException as error:
+            raise APIError("Falha de conexão ao autenticar com a Pluggy.", 502) from error
 
         if response.status_code != 200:
             print(" ERRO DA PLUGGY:", response.text)
@@ -71,23 +76,71 @@ class PluggyService:
 
         return synced_accounts
 
-    def get_transactions_for_account(self, pluggy_account_id):
-        """Busca as transações de uma conta na Pluggy v2."""
+    @staticmethod
+    def get_sync_date_range(options):
+        """Valida a opção de sincronização e retorna as datas inclusivas do mês."""
+        if options is None:
+            options = {}
+        if not isinstance(options, dict):
+            raise ValidationError("As opções de sincronização devem ser um objeto JSON.")
+        mode = options.get("mode")
+        if mode != "month":
+            raise ValidationError("Escolha um mês e ano para sincronizar.")
+        year = options.get("year")
+        month = options.get("month")
+        if (
+            type(year) is not int
+            or type(month) is not int
+            or not 1900 <= year <= 9999
+            or not 1 <= month <= 12
+        ):
+            raise ValidationError("Informe um mês e ano válidos para sincronizar.")
+        return (
+            date(year, month, 1).isoformat(),
+            date(year, month, monthrange(year, month)[1]).isoformat(),
+        )
+
+    def get_transactions_for_account(self, pluggy_account_id, date_from=None, date_to=None):
+        """Busca todas as páginas da conta, opcionalmente dentro de um mês."""
         api_key = self._get_api_key()
 
-        url = f"{self.base_url}/v2/transactions?accountId={pluggy_account_id}"
+        endpoint = f"{self.base_url}/v2/transactions"
+        url = endpoint
+        params = {"accountId": pluggy_account_id}
+        if date_from:
+            params["dateFrom"] = date_from
+        if date_to:
+            params["dateTo"] = date_to
 
         headers = {"X-API-KEY": api_key, "Content-Type": "application/json"}
 
-        response = requests.get(url, headers=headers)
-
-        if response.status_code != 200:
-            print(
-                f"🚨 ERRO DA PLUGGY (Transações): Status {response.status_code} - {response.text}"
-            )
-            raise APIError(
-                f"Falha ao buscar transações na API da Pluggy: {response.text}", status_code=500
-            )
-
-        data = response.json()
-        return data.get("results", [])
+        transactions = []
+        visited = set()
+        while True:
+            try:
+                response = requests.get(url, headers=headers, params=params, timeout=30)
+            except requests.RequestException as error:
+                raise APIError("Falha de conexão ao buscar transações na Pluggy.", 502) from error
+            if response.status_code != 200:
+                raise APIError("Falha ao buscar transações na API da Pluggy.", status_code=502)
+            try:
+                data = response.json()
+            except ValueError as error:
+                raise APIError("A Pluggy retornou uma resposta inválida.", 502) from error
+            if not isinstance(data, dict) or not isinstance(data.get("results"), list):
+                raise APIError("A Pluggy retornou uma lista de transações inválida.", 502)
+            transactions.extend(data["results"])
+            next_page = data.get("next")
+            if next_page is None:
+                break
+            if (
+                not isinstance(next_page, str)
+                or not next_page.startswith("?")
+                or next_page in visited
+            ):
+                raise APIError("A Pluggy retornou uma paginação inválida.", 502)
+            visited.add(next_page)
+            # O cursor já inclui os filtros; não deve ser reconstruído ou decodificado.
+            url = endpoint + next_page
+            params = None
+        return transactions

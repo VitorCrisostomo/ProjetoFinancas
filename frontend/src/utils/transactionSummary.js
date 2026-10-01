@@ -1,3 +1,5 @@
+import { getTransactionDateParts } from './transactionPeriod.js';
+
 export const getTransactionSummary = (transactions) => {
   let totalIncome = 0;
   let totalExpense = 0;
@@ -13,4 +15,15 @@ export const getTransactionSummary = (transactions) => {
   }
 
   return { totalIncome, totalExpense, balance: totalIncome - totalExpense, expensesByCategory };
+};
+
+// Um saldo anterior exige um período contínuo; mês sem ano reúne períodos distintos.
+export const getOpeningBalance = (transactions, month = 'all', year = 'all') => {
+  if (year === 'all') return null;
+  const start = Number(year) * 12 + (month === 'all' ? 1 : Number(month));
+  const previousTransactions = transactions.filter((transaction) => {
+    const date = getTransactionDateParts(transaction.date);
+    return date !== null && date.year * 12 + date.month < start;
+  });
+  return getTransactionSummary(previousTransactions).balance;
 };

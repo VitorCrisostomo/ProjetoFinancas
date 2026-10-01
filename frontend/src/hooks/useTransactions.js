@@ -34,8 +34,8 @@ export default function useTransactions() {
     return { result, transactions: await loadTransactions() };
   }, (_previous, data) => data.transactions).then((data) => data?.result);
 
-  const syncTransactions = () => execute(async () => {
-    const result = await readResponse(await syncPluggyTransactions());
+  const syncTransactions = (options) => execute(async () => {
+    const result = await readResponse(await syncPluggyTransactions(options));
     // A resposta da Pluggy inclui apenas transações bancárias; recarrega também as manuais.
     return { result, transactions: await loadTransactions() };
   }, (_previous, data) => data.transactions).then((data) => data?.result);

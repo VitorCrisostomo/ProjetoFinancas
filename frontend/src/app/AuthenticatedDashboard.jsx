@@ -28,7 +28,6 @@ export default function AuthenticatedDashboard({ user, onLogout }) {
       accounts,
       onGetConnectToken: accountData.getConnectToken,
       onSyncAccounts: accountData.syncAccounts,
-      onSyncTransactions: transactionData.syncTransactions,
       onDeleteAccount: accountData.deleteAccount,
     },
   };

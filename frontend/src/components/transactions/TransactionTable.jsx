@@ -10,7 +10,7 @@ export default function TransactionTable({ displayedTransactions, filteredTransa
     <div className="section">
       <div className="transactions-count">
         Exibindo {displayedTransactions.length} de {filteredTransactions.length} transações encontradas
-        {filteredTransactions.length > 50 && ' (limite de 50 exibido)'}
+        {displayedTransactions.length < filteredTransactions.length && ' (limite de 50 exibido)'}
       </div>
 
       <div className="transactions-table-container">

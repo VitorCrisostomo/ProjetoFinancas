@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import formatCurrency from '../utils/currency.jsx';
 import useTransactionPeriod from './useTransactionPeriod.js';
+import { getOpeningBalance, getTransactionSummary } from '../utils/transactionSummary.js';
 
 export default function useTransactionControls({ 
   transactions, 
@@ -18,6 +19,8 @@ export default function useTransactionControls({
   const [isUploading, setIsUploading] = useState(false); 
   const [selectedIds, setSelectedIds] = useState([]);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [syncModalOpen, setSyncModalOpen] = useState(false);
+  const [syncError, setSyncError] = useState('');
   const period = useTransactionPeriod(transactions);
 
   const categories = ['all', ...new Set(transactions.map((t) => t.category))];
@@ -29,7 +32,12 @@ export default function useTransactionControls({
     return categoryMatch && typeMatch;
   });
 
-  const displayedTransactions = filteredTransactions.slice(0, 50);
+  const displayedTransactions = period.month !== 'all'
+    ? filteredTransactions
+    : filteredTransactions.slice(0, 50);
+  const { balance: filteredBalance } = getTransactionSummary(filteredTransactions);
+  const openingBalance = getOpeningBalance(transactions, period.month, period.year);
+  const totalBalance = (openingBalance ?? 0) + filteredBalance;
 
   const handleSelectTransaction = (id) => {
     if (selectedIds.includes(id)) {
@@ -139,13 +147,27 @@ export default function useTransactionControls({
     }
   };
 
-  const handleSyncTransactions = async () => {
+  const openSyncModal = () => {
+    setSyncError('');
+    setSyncModalOpen(true);
+  };
+
+  const closeSyncModal = () => {
+    if (!isSyncing) setSyncModalOpen(false);
+  };
+
+  const handleSyncTransactions = async (options) => {
+    if (isSyncing) return;
     setIsSyncing(true);
+    setSyncError('');
     try {
-      const result = await onSyncTransactions();
-      if (result) alert(result.message);
+      const result = await onSyncTransactions(options);
+      if (result) {
+        setSyncModalOpen(false);
+        alert(result.message);
+      }
     } catch (error) {
-      alert(`Erro ao sincronizar transações: ${error.message}`);
+      setSyncError(error.message);
     } finally {
       setIsSyncing(false);
     }
@@ -160,9 +182,11 @@ export default function useTransactionControls({
     modalOpen, transactionToEdit, filterCategory, setFilterCategory,
     filterType, setFilterType, isUploading, isSyncing, selectedIds, period,
     clearSelection: () => setSelectedIds([]),
-    categories, filteredTransactions, displayedTransactions,
+    categories, filteredTransactions, displayedTransactions, filteredBalance,
+    openingBalance, totalBalance,
     handleSelectTransaction, handleExecuteAssociation, handleSave,
     handleDeleteTransaction, handleUpdateCategory, handleOpenNewModal,
     handleOpenEditModal, handleFileUpload, handleSyncTransactions, closeModal,
+    syncModalOpen, syncError, openSyncModal, closeSyncModal,
   };
 }
