@@ -1,27 +1,10 @@
+import { getTransactionSummary } from '../utils/transactionSummary.js';
 import Card from "../components/common/Card";
 import formatCurrency from "../utils/currency";
 import { categoryIcons, categoryColors } from "../utils/category";
 
 const OverviewPage = ({ transactions }) => {
-  const totalIncome = transactions
-    .filter((t) => t.type === 'income')
-    .reduce((sum, t) => sum + t.value, 0); // Modificado para t.value
-
-  const totalExpense = transactions
-    .filter((t) => t.type === 'expense')
-    .reduce((sum, t) => sum + t.value, 0); // Modificado para t.value
-
-  const balance = totalIncome - totalExpense;
-
-  // Distribuição por categoria
-  const expensesByCategory = {};
-  transactions
-    .filter((t) => t.type === 'expense')
-    .forEach((t) => {
-      // Modificado para t.value
-      expensesByCategory[t.category] = (expensesByCategory[t.category] || 0) + t.value; 
-    });
-
+  const { totalIncome, totalExpense, balance, expensesByCategory } = getTransactionSummary(transactions);
   const maxExpense = Math.max(...Object.values(expensesByCategory), 1);
 
   return (

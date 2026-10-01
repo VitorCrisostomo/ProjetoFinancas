@@ -1,17 +1,10 @@
+import { getTransactionSummary } from '../utils/transactionSummary.js';
 import formatCurrency from "../utils/currency";
 import Card from "../components/common/Card";
 import { categoryIcons } from "../utils/category";
 
 const HomePage = ({ transactions }) => {
-  const totalIncome = transactions
-    .filter((t) => t.type === 'income')
-    .reduce((sum, t) => sum + t.value, 0);
-
-  const totalExpense = transactions
-    .filter((t) => t.type === 'expense')
-    .reduce((sum, t) => sum + t.value, 0);
-
-  const balance = totalIncome - totalExpense;
+  const { totalIncome, totalExpense, balance } = getTransactionSummary(transactions);
   const recentTransactions = transactions.slice(-5).reverse();
 
   return (

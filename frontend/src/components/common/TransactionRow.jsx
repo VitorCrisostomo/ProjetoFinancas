@@ -1,4 +1,3 @@
-import { categoryIcons } from "../../utils/category.jsx";
 import formatCurrency from "../../utils/currency.jsx";
 import formatDate from "../../utils/date.jsx";
 import EditableCategory from "./EditableCategory.jsx";

@@ -1,18 +1,12 @@
 import { useState } from "react";
+import { pages } from "../../app/navigation.js";
 
 const Sidebar = ({ currentPage, onPageChange, onLogout }) => {
   const [isMobileOpen, setIsMobileOpen] = useState(false);
 
-  const navItems = [
-    { id: 'home', label: 'Início', icon: '🏠' },
-    { id: 'overview', label: 'Visão geral', icon: '📊' },
-    { id: 'transactions', label: 'Transações', icon: '📋' },
-    { id: 'accounts', label: 'Contas', icon: '🏦' }, 
-  ];
-
   return (
     <>
-      <button className="mobile-menu-btn" onClick={() => setIsMobileOpen(!isMobileOpen)}>
+      <button aria-label="Abrir ou fechar menu" aria-expanded={isMobileOpen} className="mobile-menu-btn" onClick={() => setIsMobileOpen(!isMobileOpen)}>
         ☰
       </button>
 
@@ -22,10 +16,11 @@ const Sidebar = ({ currentPage, onPageChange, onLogout }) => {
           <h1 className="sidebar-title">FinanceHub</h1>
         </div>
 
-        <nav className="sidebar-nav">
-          {navItems.map((item) => (
+        <nav className="sidebar-nav" aria-label="Navegação principal">
+          {pages.map((item) => (
             <button
               key={item.id}
+              aria-current={currentPage === item.id ? "page" : undefined}
               className={`nav-item ${currentPage === item.id ? 'active' : ''}`}
               onClick={() => {
                 onPageChange(item.id);
