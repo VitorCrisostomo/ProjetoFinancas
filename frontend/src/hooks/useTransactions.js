@@ -7,6 +7,7 @@ const loadTransactions = async () => readResponse(await transactionService.fetch
 
 export default function useTransactions() {
   const { items: transactions, execute, ...state } = useCollection(loadTransactions);
+  const reloadTransactions = () => execute(loadTransactions, (_previous, loaded) => loaded);
 
   const addTransaction = (data) => execute(
     async () => readResponse(await transactionService.createTransaction(data)),
@@ -41,5 +42,5 @@ export default function useTransactions() {
   }, (_previous, data) => data.transactions).then((data) => data?.result);
 
   return { transactions, ...state, addTransaction, updateTransaction, deleteTransaction,
-    associateTransactions, importTransactions, syncTransactions };
+    associateTransactions, importTransactions, syncTransactions, reloadTransactions };
 }

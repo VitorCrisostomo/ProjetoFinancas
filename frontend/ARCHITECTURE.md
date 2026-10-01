@@ -57,3 +57,9 @@ Em Transações, o período combina com categoria e tipo; ao selecionar um mês,
 O botão Sincronizar em Transações abre `SyncTransactionsModal`, um diálogo nativo com navegação por teclado, foco contido e fechamento por Escape. A sincronização é apenas manual, para um mês específico escolhido com o controle de mês e ano do navegador. O campo usa o período dos filtros quando definido; os valores ausentes vêm do período atual de São Paulo. Conectar uma conta salva os dados da conta e orienta o usuário a buscar as transações nesta tela, sem disparar a importação automaticamente. A API exige o período e rejeita a busca de todo o histórico.
 
 `utils/transactionSync.js` monta as opções enviadas ao backend. `useTransactionControls` controla abertura, carregamento e erros. Durante a sincronização, os campos e o fechamento são bloqueados; uma falha mantém o modal aberto. Ao concluir, `useTransactions` recarrega a lista completa, preservando também os lançamentos manuais. A seleção de sincronização não modifica os filtros de visualização.
+
+## Ajuste automático de saldo anterior
+
+O backend gera um ajuste por conta identificável por `is_opening_balance`. `TransactionRow` mostra a categoria e o indicador Automático e bloqueia edição, exclusão e seleção para associação. O ajuste integra os cálculos existentes de saldo acumulado e é datado antes do início do histórico da conta.
+
+Após conectar uma conta, `AuthenticatedDashboard` recarrega as transações locais para apresentar o ajuste; isso não busca transações bancárias. Após uma sincronização mensal, recarrega os dados das contas para refletir o saldo atualizado consultado pelo backend. Os métodos de recarga dos hooks usam o fluxo existente de sessão e tratamento de erros.

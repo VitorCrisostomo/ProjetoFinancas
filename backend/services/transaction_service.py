@@ -2,7 +2,8 @@
 
 import csv
 import io
-from datetime import datetime
+from datetime import date, datetime, time, timedelta
+from decimal import ROUND_HALF_UP, Decimal
 
 from config import db
 from exceptions.api_errors import NotFoundError, ValidationError
@@ -22,6 +23,60 @@ class TransactionService:
 
     def get_transactions_by_user_id(self, user_id):
         return self.repository.get_by_user_id(user_id)
+
+    def reconcile_opening_balance(self, account, commit=True, reference_date=None):
+        """Reconcilia a conta com um único ajuste anterior ao histórico armazenado."""
+        transactions = Transaction.query.filter_by(
+            account_id=account.id, user_id=account.user_id
+        ).all()
+        movements = [
+            transaction for transaction in transactions if not transaction.is_opening_balance
+        ]
+        opening = next(
+            (transaction for transaction in transactions if transaction.is_opening_balance), None
+        )
+        cents = Decimal("0.01")
+        net = sum(
+            (
+                Decimal(str(transaction.value)) * (1 if transaction.type == "income" else -1)
+                for transaction in movements
+            ),
+            Decimal(0),
+        )
+        adjustment = (Decimal(str(account.balance)) - net).quantize(cents, rounding=ROUND_HALF_UP)
+        if not adjustment.is_finite():
+            raise ValidationError("O saldo da conta deve ser um valor válido.")
+
+        # Sem lançamentos nesta conta, usa o início do histórico do usuário ou o mês atual.
+        history = movements or [
+            transaction
+            for transaction in self.repository.get_by_user_id(account.user_id)
+            if not transaction.is_opening_balance
+        ]
+        oldest = min(
+            (transaction.date.date() for transaction in history if transaction.date),
+            default=reference_date or date.today(),
+        )
+        opening_date = datetime.combine(oldest.replace(day=1) - timedelta(days=1), time.min)
+        if opening is None:
+            opening = Transaction(
+                external_id=f"opening-balance:{account.id}",
+                account_id=account.id,
+                user_id=account.user_id,
+            )
+            db.session.add(opening)
+        opening.value = float(abs(adjustment))
+        opening.type = "income" if adjustment >= 0 else "expense"
+        opening.date = opening_date
+        opening.name = f"Saldo anterior — {account.name}"
+        opening.category = "Saldo anterior"
+        opening.description = (
+            "Ajuste automático: saldo informado pela instituição menos as movimentações salvas. "
+            "É uma estimativa com base no histórico disponível."
+        )
+        if commit:
+            db.session.commit()
+        return opening
 
     def create_transaction(self, data):
         """Valida os campos e cria um lançamento com data YYYY-MM-DD."""
@@ -76,6 +131,9 @@ class TransactionService:
         if not transaction:
             raise NotFoundError("Transaction not found")
 
+        if transaction.is_opening_balance:
+            raise ValidationError("O saldo anterior automático é recalculado pela aplicação.")
+
         if "value" in data:
             if not data["value"]:
                 raise ValidationError("Value is required")
@@ -121,6 +179,9 @@ class TransactionService:
 
         if not t1 or t1.user_id != user_id or not t2 or t2.user_id != user_id:
             raise NotFoundError("Transações não encontradas ou não pertencem ao usuário")
+
+        if t1.is_opening_balance or t2.is_opening_balance:
+            raise ValidationError("O saldo anterior automático não pode ser associado.")
 
         try:
             updated_transaction = self.update_transaction(keep_id, updated_data, commit=False)
@@ -246,6 +307,9 @@ class TransactionService:
 
         if not transaction:
             raise NotFoundError("Transaction not found")
+
+        if transaction.is_opening_balance:
+            raise ValidationError("O saldo anterior automático não pode ser excluído.")
 
         self.repository.delete(transaction)
 
