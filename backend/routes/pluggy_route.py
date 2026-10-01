@@ -56,6 +56,15 @@ def sync_pluggy_transactions():
 
     user_accounts = Account.query.filter_by(user_id=current_user_id).all()
 
+    # Consulta apenas dados e saldos das contas; as transações seguem restritas ao mês pedido.
+    latest_accounts = {}
+    for item_id in {account.itemId for account in user_accounts}:
+        for data in pluggy_service.get_accounts_from_item(item_id):
+            latest_accounts[data.get("id")] = data
+    for account in user_accounts:
+        if account.id not in latest_accounts or latest_accounts[account.id].get("balance") is None:
+            raise APIError("Não foi possível obter o saldo atual de uma conta conectada.", 502)
+
     total_synced = 0
     synced_transactions = []
 
@@ -76,6 +85,9 @@ def sync_pluggy_transactions():
             if saved_tx is not None:
                 synced_transactions.append(saved_tx.to_json())
                 total_synced += 1
+
+        # Recalcula o ajuste somente após importar todas as páginas desta conta.
+        account_service.sync_account(latest_accounts[account.id], current_user_id)
 
     return jsonify(
         {

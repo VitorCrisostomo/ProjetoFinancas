@@ -1,8 +1,10 @@
 """Valida e sincroniza contas vinculadas aos usuários."""
 
+from config import db
 from exceptions.api_errors import NotFoundError, ValidationError
 from models.account import Account
 from repositories.account_repository import AccountRepository
+from services.transaction_service import TransactionService
 
 
 class AccountService:
@@ -43,7 +45,7 @@ class AccountService:
             existing_account.bankData = data.get("bankData", existing_account.bankData)
             existing_account.creditData = data.get("creditData", existing_account.creditData)
 
-            return self.repository.update(existing_account)
+            return self._persist_with_opening_balance(existing_account)
 
         else:
             # Criação de nova conta (Validação dos campos obrigatórios da API externa)
@@ -71,7 +73,21 @@ class AccountService:
                 creditData=data.get("creditData"),
             )
 
-            return self.repository.create(new_account)
+            return self._persist_with_opening_balance(new_account, create=True)
+
+    def _persist_with_opening_balance(self, account, create=False):
+        """Salva conta e ajuste juntos, sem consultar transações externas."""
+        try:
+            if create:
+                self.repository.create(account, commit=False)
+            else:
+                self.repository.update(account, commit=False)
+            TransactionService().reconcile_opening_balance(account, commit=False)
+            db.session.commit()
+            return account
+        except Exception:
+            db.session.rollback()
+            raise
 
     def delete_account(self, account_id, user_id):
         """Valida o vínculo com o usuário antes de excluir a conta."""

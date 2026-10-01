@@ -12,6 +12,18 @@ export default function AuthenticatedDashboard({ user, onLogout }) {
   const { accounts } = accountData;
   const { transactions } = transactionData;
 
+  const syncAccounts = async (itemId) => {
+    const result = await accountData.syncAccounts(itemId);
+    if (result) await transactionData.reloadTransactions();
+    return result;
+  };
+
+  const syncTransactions = async (options) => {
+    const result = await transactionData.syncTransactions(options);
+    if (result) await accountData.reloadAccounts();
+    return result;
+  };
+
   const pageProps = {
     home: { transactions },
     overview: { transactions },
@@ -22,12 +34,12 @@ export default function AuthenticatedDashboard({ user, onLogout }) {
       onUpdateTransaction: transactionData.updateTransaction,
       onAssociateTransactions: transactionData.associateTransactions,
       onImportTransactions: transactionData.importTransactions,
-      onSyncTransactions: transactionData.syncTransactions,
+      onSyncTransactions: syncTransactions,
     },
     accounts: {
       accounts,
       onGetConnectToken: accountData.getConnectToken,
-      onSyncAccounts: accountData.syncAccounts,
+      onSyncAccounts: syncAccounts,
       onDeleteAccount: accountData.deleteAccount,
     },
   };

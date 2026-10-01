@@ -18,6 +18,7 @@ const TransactionRow = ({
         <input
           type="checkbox"
           checked={isSelected}
+          disabled={transaction.is_opening_balance}
           onChange={() => onSelect(transaction.id)}
         />
       </td>
@@ -36,12 +37,12 @@ const TransactionRow = ({
       </td>
 
       <td className="col-category">
-        <EditableCategory
+        {transaction.is_opening_balance ? <span>Saldo anterior</span> : <EditableCategory
           currentCategory={transaction.category}
           categories={allAvailableCategories}
           categoryIcons={categoryIcons}
           onUpdate={(newCategory) => onUpdateTransaction(transaction.id, { category: newCategory })}
-        />
+        />}
       </td>
 
       <td className="col-type">
@@ -55,20 +56,22 @@ const TransactionRow = ({
       </td>
 
       <td className="col-actions">
-        <button
-          className="action-btn edit-btn"
-          onClick={() => onOpenEditModal(transaction)}
-          title="Editar transação completa"
-        >
-          ✏️
-        </button>
-        <button
-          className="action-btn delete-btn"
-          onClick={() => onDeleteTransaction(transaction.id)}
-          title="Deletar"
-        >
-          🗑️
-        </button>
+        {transaction.is_opening_balance ? <span title={transaction.description}>Automático</span> : <>
+          <button
+            className="action-btn edit-btn"
+            onClick={() => onOpenEditModal(transaction)}
+            title="Editar transação completa"
+          >
+            ✏️
+          </button>
+          <button
+            className="action-btn delete-btn"
+            onClick={() => onDeleteTransaction(transaction.id)}
+            title="Deletar"
+          >
+            🗑️
+          </button>
+        </>}
       </td>
     </tr>
   );

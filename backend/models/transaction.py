@@ -19,6 +19,11 @@ class Transaction(db.Model):
     type = db.Column(db.String(20), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
 
+    @property
+    def is_opening_balance(self):
+        """Identifica o ajuste automático sem alterar o esquema da tabela existente."""
+        return bool(self.external_id and self.external_id.startswith("opening-balance:"))
+
     def to_json(self):
         """Retorna os campos utilizados nas respostas JSON da API."""
         return {
@@ -32,4 +37,5 @@ class Transaction(db.Model):
             "description": self.description,
             "type": self.type,
             "user_id": self.user_id,
+            "is_opening_balance": self.is_opening_balance,
         }

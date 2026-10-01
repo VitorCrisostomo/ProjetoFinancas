@@ -7,6 +7,7 @@ const loadAccounts = async () => readResponse(await fetchAccounts());
 
 export default function useAccounts() {
   const { items: accounts, execute, ...state } = useCollection(loadAccounts);
+  const reloadAccounts = () => execute(loadAccounts, (_previous, loaded) => loaded);
 
   const getConnectToken = () => execute(async () => {
     const data = await readResponse(await fetchConnectToken());
@@ -27,5 +28,5 @@ export default function useAccounts() {
     (previous) => previous.filter((account) => account.id !== id),
   );
 
-  return { accounts, ...state, getConnectToken, syncAccounts, deleteAccount };
+  return { accounts, ...state, getConnectToken, syncAccounts, deleteAccount, reloadAccounts };
 }

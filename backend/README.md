@@ -71,7 +71,17 @@ O ID de conta é o UUID externo fornecido pela Pluggy. Novas contas exigem `type
 
 O widget recebe `connectToken`; após a conexão, o frontend envia `itemId` para sincronizar as contas. A sincronização de transações percorre as contas do usuário e cria ou atualiza lançamentos por `external_id`. A busca segue todos os cursores `next` em `/v2/transactions`, conforme a [documentação da Pluggy](https://v2.docs.pluggy.ai/en/reference/transaction/transactions-list-by-cursor).
 
-A sincronização é solicitada manualmente com `{"mode": "month", "year": 2026, "month": 10}`. Mês e ano devem ser números inteiros. O backend valida os valores e envia `dateFrom` e `dateTo` inclusivos, do primeiro ao último dia do mês. Requisições sem período ou com `mode: "all"` são rejeitadas. Conectar uma conta salva apenas seus dados, sem importar transações automaticamente. Essa busca consulta o histórico já disponibilizado pelo provedor; não força uma atualização da conexão bancária.
+A sincronização é solicitada manualmente com `{"mode": "month", "year": 2026, "month": 10}`. Mês e ano devem ser números inteiros. O backend valida os valores e envia `dateFrom` e `dateTo` inclusivos, do primeiro ao último dia do mês. Requisições sem período ou com `mode: "all"` são rejeitadas. Conectar uma conta salva seus dados e o ajuste local de saldo anterior, sem importar transações bancárias automaticamente. Essa busca consulta o histórico já disponibilizado pelo provedor; não força uma atualização da conexão bancária.
+
+### Saldo anterior automático
+
+`TransactionService.reconcile_opening_balance` calcula, por conta e usuário, `saldo informado pela instituição - (receitas salvas - despesas salvas)`. O cálculo inclui lançamentos manuais vinculados à conta e preserva seus valores; ignora lançamentos sem vínculo com essa conta e o próprio ajuste. Usa Decimal para calcular e arredondar o resultado em centavos.
+
+Há um único ajuste com `external_id` reservado `opening-balance:<account_id>`, categoria `Saldo anterior` e `is_opening_balance: true` no JSON. Valores negativos são armazenados como despesa e positivos como receita, mantendo a convenção dos demais lançamentos. A data é o último dia do mês anterior ao lançamento mais antigo da conta. Sem lançamentos, usa o início do histórico do usuário; sem histórico algum, usa o mês atual. Importar transações mais antigas move a data do mesmo ajuste, sem criar outro.
+
+Ao conectar ou reconectar, conta e ajuste são salvos juntos. Na sincronização manual mensal, os dados das contas são consultados uma vez por item para obter saldos atualizados; ao finalizar a importação de cada conta, o ajuste é recalculado. As transações bancárias editadas ou associadas continuam protegidas. O ajuste automático não pode ser editado, excluído ou associado, nem pela API. Não exige coluna adicional nem migração da tabela de transações.
+
+O saldo anterior é uma reconciliação estimada: períodos ausentes no histórico também entram na diferença. Não representa comprovação do saldo histórico naquela data. O cálculo usa o último saldo disponibilizado pela instituição e não garante atualização bancária em tempo real.
 
 Os cursores são utilizados sem reconstrução; respostas inválidas, cursores repetidos e falhas do provedor retornam erro. Autenticação e consulta de transações têm timeout de 30 segundos por requisição. A sincronização preserva lançamentos manuais e transações de outros períodos. Como a persistência continua individual, uma falha em uma conta posterior pode deixar dados de contas anteriores já gravados.
 
