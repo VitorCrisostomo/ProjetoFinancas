@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { categoryIcons } from "../../utils/category";
 import Button from "./Button";
 
@@ -11,23 +11,14 @@ const TransactionModal = ({ isOpen, onClose, onSave, transactionToEdit }) => {
     date: new Date().toISOString().split('T')[0],
   };
 
-  const [formData, setFormData] = useState(defaultState);
-
-  useEffect(() => {
-    if (isOpen) {
-      if (transactionToEdit) {
-        setFormData({
-          name: transactionToEdit.name,
-          category: transactionToEdit.category,
-          value: transactionToEdit.value,
-          type: transactionToEdit.type,
-          date: typeof transactionToEdit.date === 'string' ? transactionToEdit.date.split('T')[0] : transactionToEdit.date,
-        });
-      } else {
-        setFormData(defaultState);
-      }
-    }
-  }, [isOpen, transactionToEdit]);
+  const [formData, setFormData] = useState(() => transactionToEdit ? {
+    name: transactionToEdit.name,
+    category: transactionToEdit.category,
+    value: transactionToEdit.value,
+    type: transactionToEdit.type,
+    date: typeof transactionToEdit.date === 'string'
+      ? transactionToEdit.date.split('T')[0] : transactionToEdit.date,
+  } : defaultState);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -37,7 +28,6 @@ const TransactionModal = ({ isOpen, onClose, onSave, transactionToEdit }) => {
         value: parseFloat(formData.value),
       }, transactionToEdit?.id); 
       
-      setFormData(defaultState);
     }
   };
 

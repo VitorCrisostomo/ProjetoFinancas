@@ -1,42 +1,25 @@
-import { API_URL } from './api';
+import { apiRequest } from './api.js';
 
-// Busca todos os usuários[cite: 3]
+// Mantém o contrato dos serviços de usuários existentes.
 export const fetchUsers = async () => {
-    const response = await fetch(`${API_URL}/users`);
+    const response = await apiRequest('/users', { authenticated: false });
     if (!response.ok) {
         throw new Error("Erro ao buscar usuários");
     }
     return await response.json();
 };
 
-// Cria um novo usuário[cite: 6]
 export const createUser = async (data) => {
-    const response = await fetch(`${API_URL}/create_users`, {
-        method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(data)
-    });
+    const response = await apiRequest('/create_users', { method: 'POST', data, authenticated: false });
     return response;
 };
 
-// Atualiza um usuário existente[cite: 6]
 export const updateUser = async (id, data) => {
-    const response = await fetch(`${API_URL}/update_users/${id}`, {
-        method: "PATCH",
-        headers: {
-            "Content-Type": "application/json"
-        },
-        body: JSON.stringify(data)
-    });
+    const response = await apiRequest(`/update_users/${encodeURIComponent(id)}`, { method: 'PATCH', data, authenticated: false });
     return response;
 };
 
-// Deleta um usuário[cite: 1]
 export const deleteUser = async (id) => {
-    const response = await fetch(`${API_URL}/delete_users/${id}`, {
-        method: "DELETE"
-    });
+    const response = await apiRequest(`/delete_users/${encodeURIComponent(id)}`, { method: 'DELETE', authenticated: false });
     return response;
 };
