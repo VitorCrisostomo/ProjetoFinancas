@@ -12,14 +12,21 @@ const TransactionRow = ({
   categoryIcons
 }) => {
   return (
-    <tr className="transaction-row">
+    <tr className={`transaction-row${isSelected ? ' is-selected' : ''}`}>
       <td className="col-checkbox">
-        <input
-          type="checkbox"
-          checked={isSelected}
-          disabled={transaction.is_opening_balance}
-          onChange={() => onSelect(transaction.id)}
-        />
+        <label
+          className="transaction-selection"
+          title={transaction.is_opening_balance ? 'Saldo anterior automático não pode ser associado' : 'Selecionar para associação'}
+        >
+          <input
+            className="transaction-checkbox"
+            type="checkbox"
+            aria-label={`Selecionar ${transaction.name} para associação`}
+            checked={isSelected}
+            disabled={transaction.is_opening_balance}
+            onChange={() => onSelect(transaction.id)}
+          />
+        </label>
       </td>
 
       <td className="col-date">

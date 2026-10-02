@@ -11,7 +11,8 @@ export const categoryColors = {
   'Educação': '#f97316',
   'Taxas e Impostos': '#423b5f',
   'Investimentos': '#035715',
-  'Esportes': '#b9933b',
+  'Esportes': 'rgb(234, 224, 202)',
+  'teste': '#aaaaaa',
 };
 
 export const categoryIcons = {
@@ -28,4 +29,5 @@ export const categoryIcons = {
   'Taxas e Impostos': '💸',
   'Esportes': '⚽',
   'Investimentos': '📈',
+  'teste':'',
 };
