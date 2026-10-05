@@ -1,0 +1,17 @@
+title = "Excecoes pontuais de fixtures de autenticacao"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+
+[[rules.allowlists]]
+description = "Somente duas senhas ficticias dos testes de autenticacao"
+condition = "AND"
+regexTarget = "secret"
+paths = ['''^backend/tests/test_authentication\.py$''']
+regexes = [
+    '''^outra-senha-segura-123$''',
+    '''^senha-da-familia-123$''',
+]

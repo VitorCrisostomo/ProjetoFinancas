@@ -1,11 +1,28 @@
-# Banco SQLite local
-backend/instance/*.db
-backend/instance/*.db-*
-backend/.secrets/
-backend/backups/
+# Configurações e chaves locais
+.env
+.env.*
+!.env.example
+.secrets
+.secrets/
+
+# Bancos SQLite e seus arquivos auxiliares
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
+
+# Backups locais
+backup/
+backups/
+*.bak
+*.backup
 *.fhbackup
-backend/.env
-backend/.env.lock
-backend/.env.*.tmp
+
+# Artefatos gerados
 __pycache__/
+*.pyc
+*.pyo
+node_modules/
 .ruff_cache/
