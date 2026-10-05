@@ -16,7 +16,7 @@ export default function TransactionFilters({ categories, filterCategory, setFilt
         >
           {categories.map((cat) => (
             <option key={cat} value={cat}>
-              {cat === 'all' ? 'Todas as categorias' : `${categoryIcons[cat]} ${cat}`}
+              {cat === '' ? 'Todas as categorias' : `${categoryIcons[cat] || '🏷️'} ${cat}`}
             </option>
           ))}
         </select>

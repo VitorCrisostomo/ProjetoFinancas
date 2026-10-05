@@ -45,10 +45,10 @@ const TransactionRow = ({
       <td className="col-category">
         {transaction.is_opening_balance ? <span>Saldo anterior</span> : <EditableCategory
           currentCategory={transaction.category}
+          currentSubcategory={transaction.subcategory}
           label={`Alterar categoria de ${transaction.name}`}
           categories={allAvailableCategories}
-          categoryIcons={categoryIcons}
-          onUpdate={(newCategory) => onUpdateTransaction(transaction.id, { category: newCategory })}
+          onUpdate={(classification) => onUpdateTransaction(transaction.id, classification)}
         />}
       </td>
 

@@ -1,6 +1,6 @@
 """Consulta e persiste transações utilizando a sessão do SQLAlchemy."""
 
-from sqlalchemy import inspect, select
+from sqlalchemy import inspect, select, text
 
 from config import db
 from models.transaction import Transaction
@@ -9,6 +9,20 @@ from models.transaction_sync_protection import TransactionSyncProtection
 
 class TransactionRepository:
     """Operações de transações; cada escrita confirma a sessão atual."""
+
+    @staticmethod
+    def initialize_subcategory_column():
+        """Adiciona a classificação opcional aos bancos existentes sem alterar o histórico."""
+        with db.engine.begin() as connection:
+            inspector = inspect(connection)
+            if not inspector.has_table(Transaction.__tablename__):
+                return
+            if "subcategory" not in {
+                column["name"] for column in inspector.get_columns("transactions")
+            }:
+                connection.execute(
+                    text("ALTER TABLE transactions ADD COLUMN subcategory VARCHAR(50)")
+                )
 
     @staticmethod
     def initialize_sync_protection():

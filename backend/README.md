@@ -50,13 +50,30 @@ Requisições JSON usam `Content-Type: application/json`. As rotas com JWT exige
 | POST | `/accounts/sync` | Sim | Dados da conta externa, incluindo `id` |
 | DELETE | `/accounts/<account_id>` | Sim | — |
 | GET | `/transactions` | Sim | — |
-| PATCH | `/update_transactions/<transaction_id>` | Sim | `name`, `date` e `category`; demais campos são rejeitados |
+| PATCH | `/update_transactions/<transaction_id>` | Sim | `name`, `date`, `category` e `subcategory` opcional; demais campos são rejeitados |
+| GET | `/categories` | Sim | Catálogo do usuário com subcategorias |
+| POST | `/categories` | Sim | `name` |
+| POST | `/categories/<category_id>/subcategories` | Sim | `name`, dentro de uma categoria do usuário |
 | POST | `/transactions/associate` | Sim | `transaction_ids` (dois ou mais IDs), `updated_data` opcional; aceita também o formato anterior com `keep_id` e `remove_id` |
 | GET | `/pluggy/connect_token` | Sim | — |
 | POST | `/pluggy/accounts/sync` | Sim | `itemId` |
 | POST | `/pluggy/transactions/sync` | Sim | `mode: "month"`, `month`, `year` obrigatórios |
 
-Criação de usuários retorna 201 no sucesso; as demais rotas retornam 200. Erros derivados de `APIError` retornam `{"message": "..."}` com o status associado. Erros do Flask e do JWT seguem os handlers das respectivas bibliotecas.
+Criação de usuários, categorias e subcategorias retorna 201 no sucesso; as demais rotas retornam 200. Erros derivados de `APIError` retornam `{"message": "..."}` com o status associado. Erros do Flask e do JWT seguem os handlers das respectivas bibliotecas.
+
+### Categorias e subcategorias
+
+As tabelas `categories` e `subcategories` guardam o catálogo por usuário. Nomes têm até 50 caracteres; espaços excedentes são normalizados e nomes duplicados, independentemente de maiúsculas/minúsculas, são rejeitados. Categorias são únicas por usuário; subcategorias são únicas dentro de cada categoria. O mesmo nome de subcategoria pode existir em categorias diferentes. `Saldo anterior` é reservado aos ajustes automáticos.
+
+Ao listar o catálogo pela primeira vez, o serviço acrescenta as categorias padrão e as categorias já presentes no histórico do usuário, sem reclassificar transações. A criação de uma subcategoria retorna a categoria com sua lista atualizada. Não há rotas para renomear ou excluir categorias nesta funcionalidade.
+
+O catálogo inclui as subcategorias do BB fornecidas pelo usuário, somente nos grupos existentes: Moradia, Alimentação, Transporte, Saúde, Educação, Lazer, Compras, Investimentos e Taxas e Impostos. Despesas Pessoais / Vestuário corresponde a Compras; Faturas não é criada. A inclusão é idempotente, preserva subcategorias personalizadas e não atribui subcategorias automaticamente às transações. A lista fica em `DEFAULT_SUBCATEGORIES`, no serviço de categorias.
+
+A inicialização executa `CategoryService().migrate_leisure_category()` após a criação das tabelas e da coluna de subcategoria. Esse procedimento renomeia Entretenimento para Lazer no catálogo e no histórico, preservando os demais campos e as proteções da sincronização. Se Lazer já existir, os filhos são reunidos sem duplicar nomes. A listagem do catálogo também aplica essa migração por usuário; inicializadores alternativos devem executá-la antes de atender requisições.
+
+A transação mantém o campo `category` existente e acrescenta `subcategory`, uma classificação opcional. O backend valida que a subcategoria pertence à categoria do usuário antes de alterar qualquer campo. `null` remove a subcategoria; mudar a categoria sem informar subcategoria limpa a classificação filha anterior. Editar apenas nome ou data preserva a classificação. Associações mantêm a classificação da primeira transação, e edições de subcategoria também protegem o lançamento contra sobrescrita pela Pluggy.
+
+Reinicie o backend com `python main.py` para aplicar a atualização do banco. A inicialização cria as tabelas do catálogo e acrescenta a coluna opcional `transactions.subcategory` quando ausente, sem modificar o histórico existente. O procedimento é idempotente; inicializadores alternativos devem executar `db.create_all()` e `TransactionRepository.initialize_subcategory_column()` no contexto da aplicação.
 
 ### Cadastro e autenticação
 

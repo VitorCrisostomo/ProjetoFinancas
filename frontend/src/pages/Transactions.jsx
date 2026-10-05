@@ -50,6 +50,7 @@ export default function TransactionsPage(props) {
         </div>
       </div>
       <TransactionTable
+        categoryCatalog={controls.availableCategories}
         displayedTransactions={controls.displayedTransactions}
         filteredTransactions={controls.filteredTransactions}
         selectedIds={controls.selectedIds}
@@ -70,6 +71,7 @@ export default function TransactionsPage(props) {
         onClose={controls.closeModal}
         onSave={controls.handleSave}
         transactionToEdit={controls.transactionToEdit}
+        categories={controls.availableCategories}
       />}
     </div>
   );

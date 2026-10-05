@@ -28,6 +28,7 @@ Para adicionar uma página, registre-a em `navigation.js` e forneça suas propri
 
 - `useAuth`: usuário e ações de autenticação.
 - `useAccounts` e `useTransactions`: carregamento e alterações persistidas no backend.
+- `useCategories`: catálogo de categorias e subcategorias persistidas por usuário.
 - `useCollection`: carregamento, erros e proteção contra respostas após o encerramento da sessão.
 - `useTransactionControls`: filtros, seleção, formulário e feedback das ações de transação.
 - `useAccountConnection`: abertura do widget, conexão e feedback das ações de conta.
@@ -38,7 +39,7 @@ Os hooks de dados retornam resultados ou lançam erros. Os controles de interfac
 
 Os serviços retornam `Response`. `readResponse`, em `services/api.js`, interpreta respostas nos hooks de dados e converte falhas HTTP em erros. O cliente comum adiciona o JWT e serializa JSON.
 
-Transações são criadas pela sincronização mensal da Pluggy e pelo ajuste automático de saldo anterior. A interface oferece sincronização, associação e edição de nome, data e categoria. Valor e tipo não fazem parte do formulário nem da requisição de edição; o backend rejeita campos adicionais. Criação manual, importação CSV e exclusão individual foram removidas. Lançamentos anteriores permanecem salvos, incluindo os antigos registros manuais.
+Transações são criadas pela sincronização mensal da Pluggy e pelo ajuste automático de saldo anterior. A interface oferece sincronização, associação e edição de nome, data, categoria e subcategoria opcional. Valor e tipo não fazem parte do formulário nem da requisição de edição; o backend rejeita campos adicionais. Criação manual, importação CSV e exclusão individual foram removidas. Lançamentos anteriores permanecem salvos, incluindo os antigos registros manuais.
 
 `VITE_API_URL` configura o endereço do backend; consulte `.env.example`.
 
@@ -46,15 +47,23 @@ Transações são criadas pela sincronização mensal da Pluggy e pelo ajuste au
 
 Na pasta `frontend`, execute `npm run build`, `npm run lint` e `npm test`. Ao alterar fluxos, valide também login, navegação, associação, sincronização e edição no navegador com o backend disponível.
 
-## Períodos em Transações e Visão geral
+## Períodos em Início, Transações e Visão geral
 
 Cada página mantém seus próprios filtros de mês e ano em `useTransactionPeriod`. A lógica comum fica em `utils/transactionPeriod.js`; a interface dos seletores fica em `TransactionPeriodFilter`.
 
-O padrão mostra todo o histórico. É possível selecionar um ano inteiro ou a combinação de mês e ano. Ao selecionar um mês sem ano definido, o ano atual de São Paulo é preenchido automaticamente; um ano escolhido anteriormente é preservado. A opção Todos os anos fica disponível somente com Todos os meses. A lista de anos inclui o histórico e o ano atual, mesmo sem lançamentos. As datas exibidas e os filtros usam a data de calendário recebida da API, sem conversão de fuso.
+O padrão é o mês e ano atuais de São Paulo, inclusive no Início. Limpar período mostra todo o histórico. É possível selecionar um ano inteiro ou a combinação de mês e ano. Ao selecionar um mês sem ano definido, o ano atual de São Paulo é preenchido automaticamente; um ano escolhido anteriormente é preservado. A opção Todos os anos fica disponível somente com Todos os meses. A lista de anos inclui o histórico e o ano atual, mesmo sem lançamentos. As datas exibidas e os filtros usam a data de calendário recebida da API, sem conversão de fuso.
 
 Em Transações, o período combina com categoria e tipo; ao selecionar um mês, todas as linhas correspondentes são exibidas. Sem mês selecionado, permanece o limite visual de 50 linhas. Mudar um filtro limpa a seleção para associação. Transações e Visão geral incluem o saldo anterior quando há um ano definido: o histórico anterior ao início do mês (ou do ano inteiro) é somado às movimentações filtradas. Mês sem ano não possui saldo anterior único. Receitas, despesas, gráficos e taxa de economia do Overview consideram somente o período. Períodos sem lançamentos mantêm o saldo anterior quando aplicável. Os filtros não alteram os dados persistidos.
 
 `transactionList.js` ordena as transações pela data de calendário, da mais recente à mais antiga, antes do limite visual. A tabela usa um grupo por dia com separador por data, incluindo o ano, sem deslocar o lançamento por conversão de fuso. Datas inválidas ficam no último grupo. Os cartões de contas usam a classe compartilhada `card` e as variáveis de tema, inclusive no estado de sincronização e na grade responsiva.
+
+## Personalização e classificação
+
+`Personalization` apresenta cartões de categorias com suas subcategorias, busca por nome e formulários de criação. `useCategories` mantém o catálogo autenticado durante a sessão e usa `categoryService` para persistir as criações. O dashboard compartilha o catálogo com a página, Transações e Visão geral, sem reorganizar as camadas existentes. Cores e ícones conhecidos continuam em `category.jsx`; categorias personalizadas usam o ícone de etiqueta e a cor neutra do tema.
+
+`CategoryPicker` é compartilhado pela edição na tabela e pelo modal. O primeiro clique abre o menu; clicar em uma categoria seleciona apenas a categoria. Passar o cursor ou focar uma categoria mostra suas subcategorias no painel ao lado. A subcategoria é opcional, com opção explícita Sem subcategoria. Em telas de toque, é possível selecionar a categoria e reabrir o menu para escolher uma subcategoria. Setas, Tab e Escape permitem navegação por teclado; clicar fora fecha o menu. O menu é renderizado em um portal para não ser recortado pela rolagem da tabela. A listagem mostra a subcategoria abaixo da categoria, e a associação preserva ambas da primeira transação.
+
+No Overview, Categoria filtra exclusivamente o gráfico de distribuição de despesas. Todas as categorias agrupa por categoria; uma categoria específica agrupa por subcategoria e inclui Sem subcategoria. O período é respeitado, receitas e ajustes automáticos são excluídos desse gráfico, e os indicadores financeiros continuam abrangendo todo o período. `categoryCatalog.js` compõe o catálogo sem alterar a origem e soma o detalhamento em centavos, inclusive para categorias personalizadas. O Início mantém o saldo anterior no acumulado e exibe as transações mais recentes do período escolhido.
 
 ## Modal de sincronização
 

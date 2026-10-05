@@ -1,11 +1,17 @@
-import { getTransactionSummary } from '../utils/transactionSummary.js';
+import { getOpeningBalance, getTransactionSummary } from '../utils/transactionSummary.js';
+import useTransactionPeriod from '../hooks/useTransactionPeriod.js';
+import TransactionPeriodFilter from '../components/common/TransactionPeriodFilter.jsx';
+import { sortTransactionsByDate } from '../utils/transactionList.js';
 import formatCurrency from "../utils/currency";
 import Card from "../components/common/Card";
 import { categoryIcons } from "../utils/category";
 
 const HomePage = ({ transactions }) => {
-  const { totalIncome, totalExpense, balance } = getTransactionSummary(transactions);
-  const recentTransactions = transactions.slice(-5).reverse();
+  const period = useTransactionPeriod(transactions);
+  const { totalIncome, totalExpense, balance: periodBalance } = getTransactionSummary(period.transactions);
+  const openingBalance = getOpeningBalance(transactions, period.month, period.year);
+  const balance = (openingBalance ?? 0) + periodBalance;
+  const recentTransactions = sortTransactionsByDate(period.transactions).slice(0, 5);
 
   return (
     <div className="page-content">
@@ -14,13 +20,18 @@ const HomePage = ({ transactions }) => {
         <p>Bem-vindo ao seu gerenciador financeiro pessoal</p>
       </div>
 
+      <div className="filters-section"><TransactionPeriodFilter period={period} /></div>
+
       {/* Saldo em Destaque */}
       <div className="highlight-section">
         <div className="highlight-card">
-          <span className="highlight-label">Saldo Disponível</span>
+          <span className="highlight-label">Saldo acumulado</span>
           <span className={`highlight-value ${balance >= 0 ? 'positive' : 'negative'}`}>
             {formatCurrency(balance)}
           </span>
+          {openingBalance !== null && <p className="transactions-balance-description">
+            Saldo anterior: {formatCurrency(openingBalance)} · Movimentações do período: {formatCurrency(periodBalance)}
+          </p>}
         </div>
       </div>
 
@@ -58,7 +69,7 @@ const HomePage = ({ transactions }) => {
                 </span>
                 <div className="transaction-details">
                   <span className="transaction-name">{t.name}</span>
-                  <span className="transaction-category">{t.category}</span>
+                  <span className="transaction-category">{t.category}{t.subcategory && ` › ${t.subcategory}`}</span>
                 </div>
               </div>
               <span className={`transaction-value ${t.type}`}>
@@ -67,6 +78,7 @@ const HomePage = ({ transactions }) => {
             </div>
           ))}
         </div>
+        {recentTransactions.length === 0 && <p className="empty-state">Nenhuma transação neste período.</p>}
       </div>
 
       {/* Atalhos de Ação */}

@@ -8,7 +8,7 @@ test('associa várias transações com soma de receitas e despesas e metadados d
   assert.deepEqual(getAssociationData([
     transaction('Primeira', 100), transaction('Segunda', 40, 'expense'),
     transaction('Terceira', 20, 'expense'), transaction('Quarta', 10),
-  ]), { name: 'Primeira / Segunda / Terceira / Quarta', value: 50, type: 'income', category: 'Extra', date: '2026-10-01' });
+  ]), { name: 'Primeira / Segunda / Terceira / Quarta', value: 50, type: 'income', category: 'Extra', subcategory: null, date: '2026-10-01' });
 });
 
 test('associação aceita saldo zero em centavos e resultado negativo', () => {
@@ -24,4 +24,9 @@ test('nome combinado respeita o tamanho do campo ao associar muitos lançamentos
   const result = getAssociationData(Array.from({ length: 10 }, () => transaction('Descrição extensa', 1)));
   assert.equal(result.name.length, 120);
   assert.equal(result.value, 10);
+});
+
+test('associação preserva a subcategoria da primeira transação', () => {
+  const first = { ...transaction('Primeira', 100), subcategory: 'Freelance' };
+  assert.equal(getAssociationData([first, transaction('Segunda', 10)]).subcategory, 'Freelance');
 });

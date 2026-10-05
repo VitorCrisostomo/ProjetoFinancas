@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { categoryIcons } from "../../utils/category";
+import CategoryPicker from './CategoryPicker.jsx';
 import Button from "./Button";
 
-const TransactionModal = ({ isOpen, onClose, onSave, transactionToEdit }) => {
-  const categories = [...new Set([transactionToEdit?.category, ...Object.keys(categoryIcons)].filter(Boolean))];
+const TransactionModal = ({ isOpen, onClose, onSave, transactionToEdit, categories }) => {
   const [formData, setFormData] = useState(() => transactionToEdit ? {
     name: transactionToEdit.name,
     category: transactionToEdit.category,
+    subcategory: transactionToEdit.subcategory || null,
     date: typeof transactionToEdit.date === 'string'
       ? transactionToEdit.date.split('T')[0] : transactionToEdit.date,
   } : { name: '', category: '', date: '' });
@@ -44,16 +44,9 @@ const TransactionModal = ({ isOpen, onClose, onSave, transactionToEdit }) => {
           <div className="form-row">
             <div className="form-group">
               <label>Categoria *</label>
-              <select
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              >
-                {categories.map((cat) => (
-                  <option key={cat} value={cat}>
-                    {categoryIcons[cat]} {cat}
-                  </option>
-                ))}
-              </select>
+              <CategoryPicker categories={categories} category={formData.category}
+                subcategory={formData.subcategory} label="Categoria da transação"
+                onChange={(classification) => setFormData({ ...formData, ...classification })} />
             </div>
 
             <div className="form-group">

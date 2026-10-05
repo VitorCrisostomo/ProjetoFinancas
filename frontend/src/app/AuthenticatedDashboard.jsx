@@ -2,6 +2,7 @@ import { useState } from 'react';
 import AppLayout from '../components/layout/AppLayout.jsx';
 import useAccounts from '../hooks/useAccounts.js';
 import useTransactions from '../hooks/useTransactions.js';
+import useCategories from '../hooks/useCategories.js';
 import { DEFAULT_PAGE, getPage } from './navigation.js';
 
 // Os hooks de dados vivem somente durante a sessão autenticada.
@@ -9,6 +10,7 @@ export default function AuthenticatedDashboard({ user, onLogout }) {
   const [currentPage, setCurrentPage] = useState(DEFAULT_PAGE);
   const accountData = useAccounts();
   const transactionData = useTransactions();
+  const categoryData = useCategories();
   const { accounts } = accountData;
   const { transactions } = transactionData;
 
@@ -26,9 +28,10 @@ export default function AuthenticatedDashboard({ user, onLogout }) {
 
   const pageProps = {
     home: { transactions },
-    overview: { transactions },
+    overview: { transactions, categoryCatalog: categoryData.categories },
     transactions: {
       transactions,
+      categoryCatalog: categoryData.categories,
       onUpdateTransaction: transactionData.updateTransaction,
       onAssociateTransactions: transactionData.associateTransactions,
       onSyncTransactions: syncTransactions,
@@ -39,12 +42,17 @@ export default function AuthenticatedDashboard({ user, onLogout }) {
       onSyncAccounts: syncAccounts,
       onDeleteAccount: accountData.deleteAccount,
     },
+    personalization: {
+      categories: categoryData.categories,
+      onCreateCategory: categoryData.createCategory,
+      onCreateSubcategory: categoryData.createSubcategory,
+    },
   };
   const page = getPage(currentPage);
   const Page = page.component;
 
-  const isLoading = accountData.isLoading || transactionData.isLoading;
-  const errors = [...new Set([accountData.error, transactionData.error].filter(Boolean))];
+  const isLoading = accountData.isLoading || transactionData.isLoading || categoryData.isLoading;
+  const errors = [...new Set([accountData.error, transactionData.error, categoryData.error].filter(Boolean))];
 
   return (
     <AppLayout user={user} currentPage={currentPage} onPageChange={setCurrentPage} onLogout={onLogout}>

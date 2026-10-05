@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { filterTransactionsByPeriod, getCurrentYear, getTransactionYears, normalizeTransactionPeriod } from '../utils/transactionPeriod.js';
+import { filterTransactionsByPeriod, getCurrentPeriod, getCurrentYear, getTransactionYears, normalizeTransactionPeriod } from '../utils/transactionPeriod.js';
 
 export default function useTransactionPeriod(transactions) {
-  const [{ month, year }, setPeriod] = useState({ month: 'all', year: 'all' });
+  const [{ month, year }, setPeriod] = useState(() => getCurrentPeriod());
   const setMonth = (nextMonth) => setPeriod((previous) => normalizeTransactionPeriod(nextMonth, previous.year));
   const setYear = (nextYear) => setPeriod((previous) => normalizeTransactionPeriod(previous.month, nextYear));
   const resetPeriod = () => {

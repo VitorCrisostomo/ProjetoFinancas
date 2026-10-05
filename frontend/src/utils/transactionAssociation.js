@@ -8,6 +8,7 @@ export const getAssociationData = (transactions) => {
     value: Math.abs(cents) / 100,
     type: cents >= 0 ? 'income' : 'expense',
     category: first.category,
+    subcategory: first.subcategory || null,
     date: typeof first.date === 'string' ? first.date.split('T')[0] : first.date,
   };
 };

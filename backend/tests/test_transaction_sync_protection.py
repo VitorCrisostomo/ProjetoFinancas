@@ -8,6 +8,7 @@ from unittest.mock import Mock, patch
 
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import inspect, text
 
 test_app = Flask(__name__)
 test_app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
@@ -32,16 +33,19 @@ with patch.dict(
 ):
     from exceptions.api_errors import ValidationError
     from models.account import Account
+    from models.category import Category, Subcategory
     from models.transaction import Transaction
     from models.transaction_sync_protection import TransactionSyncProtection
     from models.user import User
     from repositories.transaction_repository import TransactionRepository
-    from routes import pluggy_route, transaction_route
+    from routes import category_routes, pluggy_route, transaction_route
     from services.account_service import AccountService
+    from services.category_service import DEFAULT_CATEGORIES, DEFAULT_SUBCATEGORIES, CategoryService
     from services.transaction_service import TransactionService
 
 test_app.register_blueprint(pluggy_route.pluggy_routes)
 test_app.register_blueprint(transaction_route.transaction_routes)
+test_app.register_blueprint(category_routes.category_routes)
 
 
 class TransactionSyncProtectionTests(unittest.TestCase):
@@ -121,6 +125,253 @@ class TransactionSyncProtectionTests(unittest.TestCase):
         self.assertIsNone(self.sync("category"))
         self.assertEqual(transaction.value, 100)
         self.assertEqual(transaction.category, "Moradia")
+
+    def test_category_catalog_preserves_history_and_is_idempotent(self):
+        transaction = self.transaction("historical")
+        transaction.category = "Categoria antiga"
+        self.service.reconcile_opening_balance(test_db.session.get(Account, "account"))
+        client = test_app.test_client()
+        first = client.get("/categories")
+        second = client.get("/categories")
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(first.json, second.json)
+        names = {category["name"] for category in first.json}
+        self.assertTrue(set(DEFAULT_CATEGORIES) <= names)
+        self.assertIn("Categoria antiga", names)
+        self.assertNotIn("Saldo anterior", names)
+        self.assertEqual(transaction.category, "Categoria antiga")
+        self.assertIsNone(transaction.subcategory)
+
+    def test_leisure_migration_preserves_classification_and_sync_protection(self):
+        category = Category(user_id=1, name="Entretenimento", normalized_name="entretenimento")
+        test_db.session.add(category)
+        test_db.session.flush()
+        test_db.session.add(
+            Subcategory(category_id=category.id, name="Cinema", normalized_name="cinema")
+        )
+        transaction = self.transaction("leisure-edited")
+        self.service.update_transaction(
+            transaction.id, {"category": "Entretenimento", "subcategory": "Cinema"}
+        )
+        before = transaction.to_json()
+        for _ in range(2):
+            CategoryService().migrate_leisure_category()
+        self.assertEqual(category.name, "Lazer")
+        self.assertEqual(category.subcategories[0].name, "Cinema")
+        expected = {**before, "category": "Lazer"}
+        self.assertEqual(transaction.to_json(), expected)
+        self.assertIsNone(self.sync("leisure-edited"))
+        self.assertEqual(transaction.to_json(), expected)
+
+    def test_leisure_migration_merges_existing_parent_without_losing_children(self):
+        old = Category(user_id=1, name="Entretenimento", normalized_name="entretenimento")
+        target = Category(user_id=1, name="Lazer", normalized_name="lazer")
+        other = Category(user_id=2, name="Entretenimento", normalized_name="entretenimento")
+        test_db.session.add(User(id=2, name="Outro", email="outro@example.com", password="test"))
+        test_db.session.add_all([old, target, other])
+        test_db.session.flush()
+        target_id = target.id
+        test_db.session.add_all(
+            [
+                Subcategory(category_id=old.id, name="cinema", normalized_name="cinema"),
+                Subcategory(category_id=old.id, name="Passeios", normalized_name="passeios"),
+                Subcategory(category_id=target.id, name="Cinema", normalized_name="cinema"),
+            ]
+        )
+        transaction = self.transaction("leisure-merge")
+        transaction.category = "Entretenimento"
+        transaction.subcategory = "cinema"
+        test_db.session.commit()
+        CategoryService().migrate_leisure_category(1)
+        test_db.session.expire_all()
+        self.assertEqual(Category.query.filter_by(user_id=1).count(), 1)
+        self.assertEqual(test_db.session.get(Category, target_id).name, "Lazer")
+        self.assertEqual(
+            {sub.name for sub in test_db.session.get(Category, target_id).subcategories},
+            {"Cinema", "Passeios"},
+        )
+        self.assertEqual(transaction.category, "Lazer")
+        self.assertEqual(transaction.subcategory, "Cinema")
+        self.assertEqual(other.name, "Entretenimento")
+
+    def test_legacy_transactions_without_catalog_are_renamed_and_sync_uses_leisure(self):
+        transaction = self.transaction("leisure-history")
+        transaction.category = "Entretenimento"
+        test_db.session.commit()
+        catalog = CategoryService().list_categories(1)
+        self.assertEqual(transaction.category, "Lazer")
+        self.assertNotIn("Entretenimento", {category.name for category in catalog})
+        for external in ("Tickets", "Leisure", "Cinema, theater and concerts", "Digital services"):
+            self.assertEqual(self.service.map_category(external, "expense"), "Lazer")
+
+    def test_bb_defaults_only_add_corresponding_children_and_preserve_customizations(self):
+        parent = Category(user_id=1, name="Moradia", normalized_name="moradia")
+        test_db.session.add(parent)
+        test_db.session.flush()
+        test_db.session.add_all(
+            [
+                Subcategory(category_id=parent.id, name="condomínio", normalized_name="condomínio"),
+                Subcategory(category_id=parent.id, name="Jardim", normalized_name="jardim"),
+            ]
+        )
+        transaction = self.transaction("unclassified")
+        transaction.category = "Moradia"
+        test_db.session.commit()
+        service = CategoryService()
+        first = [category.to_json() for category in service.list_categories(1)]
+        second = [category.to_json() for category in service.list_categories(1)]
+        self.assertEqual(first, second)
+        self.assertEqual({item["name"] for item in first}, set(DEFAULT_CATEGORIES))
+        for category in service.list_categories(1):
+            expected = {name.casefold() for name in DEFAULT_SUBCATEGORIES.get(category.name, ())}
+            if category.name == "Moradia":
+                expected.add("jardim")
+            self.assertEqual({sub.normalized_name for sub in category.subcategories}, expected)
+            self.assertTrue(all(len(sub.name) <= 50 for sub in category.subcategories))
+        self.assertIsNone(transaction.subcategory)
+        self.assertEqual(transaction.category, "Moradia")
+        self.assertEqual(TransactionSyncProtection.query.count(), 0)
+
+    def test_category_creation_validates_names_duplicates_and_user_scope(self):
+        client = test_app.test_client()
+        result = client.post("/categories", json={"name": "  Viagens   em família  "})
+        self.assertEqual(result.status_code, 201)
+        self.assertEqual(result.json["name"], "Viagens em família")
+        for data in (
+            {"name": "viagens em família"},
+            {"name": ""},
+            {"name": " "},
+            {"name": None},
+            {"name": True},
+            {"name": "x" * 51},
+            {"name": "Saldo anterior"},
+            [],
+        ):
+            with self.subTest(data=data):
+                self.assertEqual(client.post("/categories", json=data).status_code, 400)
+        test_db.session.add(User(id=2, name="Outro", email="outro@example.com", password="test"))
+        test_db.session.commit()
+        other = CategoryService().create_category(2, {"name": "Viagens em família"})
+        self.assertEqual(other.user_id, 2)
+        self.assertNotIn(other.id, [category["id"] for category in client.get("/categories").json])
+
+    def test_subcategories_are_unique_per_parent_and_reject_another_users_parent(self):
+        service = CategoryService()
+        first = service.create_category(1, {"name": "Viagens"})
+        second = service.create_category(1, {"name": "Trabalho"})
+        client = test_app.test_client()
+        path = f"/categories/{first.id}/subcategories"
+        result = client.post(path, json={"name": "  Hospedagem "})
+        self.assertEqual(result.status_code, 201)
+        self.assertEqual(result.json["subcategories"][0]["name"], "Hospedagem")
+        self.assertEqual(client.post(path, json={"name": "HOSPEDAGEM"}).status_code, 400)
+        self.assertEqual(client.post(path, json={"name": ""}).status_code, 400)
+        self.assertEqual(
+            client.post(
+                f"/categories/{second.id}/subcategories", json={"name": "Hospedagem"}
+            ).status_code,
+            201,
+        )
+        second.user_id = 2
+        test_db.session.commit()
+        self.assertEqual(
+            client.post(
+                f"/categories/{second.id}/subcategories", json={"name": "Outra"}
+            ).status_code,
+            404,
+        )
+        self.assertEqual(
+            Subcategory.query.filter(Subcategory.category_id.in_([first.id, second.id])).count(), 2
+        )
+
+    def test_classification_persists_is_optional_and_remains_protected_from_sync(self):
+        category = CategoryService().create_category(1, {"name": "Viagens"})
+        CategoryService().create_subcategory(1, category.id, {"name": "Hospedagem"})
+        transaction = self.transaction("classified", 80)
+        client = test_app.test_client()
+        path = f"/update_transactions/{transaction.id}"
+        result = client.patch(path, json={"category": "Viagens", "subcategory": "hospedagem"})
+        self.assertEqual(result.status_code, 200)
+        self.assertEqual(result.json["subcategory"], "Hospedagem")
+        self.assertEqual(result.json["value"], 80)
+        self.service.update_transaction(transaction.id, {"name": "Editada"})
+        self.assertEqual(transaction.subcategory, "Hospedagem")
+        self.assertIsNone(self.sync("classified"))
+        test_db.session.expire_all()
+        self.assertEqual(transaction.subcategory, "Hospedagem")
+        client.patch(path, json={"subcategory": None})
+        self.assertIsNone(transaction.subcategory)
+        client.patch(path, json={"subcategory": "Hospedagem"})
+        client.patch(path, json={"category": "Moradia"})
+        self.assertEqual(transaction.category, "Moradia")
+        self.assertIsNone(transaction.subcategory)
+
+    def test_invalid_subcategory_is_rejected_before_any_field_changes(self):
+        category = CategoryService().create_category(1, {"name": "Viagens"})
+        CategoryService().create_subcategory(1, category.id, {"name": "Hospedagem"})
+        transaction = self.transaction("classified")
+        client = test_app.test_client()
+        for data in (
+            {"category": "Extra", "subcategory": "Hospedagem", "name": "Não salvar"},
+            {"category": "Viagens", "subcategory": "Inexistente"},
+            {"category": "Viagens", "subcategory": True},
+        ):
+            with self.subTest(data=data):
+                result = client.patch(f"/update_transactions/{transaction.id}", json=data)
+                self.assertEqual(result.status_code, 400)
+                self.assertEqual(transaction.category, "Extra")
+                self.assertEqual(transaction.name, "Original")
+                self.assertIsNone(transaction.subcategory)
+        category.user_id = 2
+        test_db.session.commit()
+        self.assertEqual(
+            client.patch(
+                f"/update_transactions/{transaction.id}",
+                json={
+                    "category": "Viagens",
+                    "subcategory": "Hospedagem",
+                },
+            ).status_code,
+            400,
+        )
+
+    def test_association_preserves_subcategory_and_clears_it_when_parent_changes(self):
+        category = CategoryService().create_category(1, {"name": "Viagens"})
+        CategoryService().create_subcategory(1, category.id, {"name": "Hospedagem"})
+        first = self.transaction("first")
+        second = self.transaction("second")
+        self.service.update_transaction(
+            first.id, {"category": "Viagens", "subcategory": "Hospedagem"}
+        )
+        associated = self.service.associate_transactions(1, [first.id, second.id], {})
+        self.assertEqual(associated.subcategory, "Hospedagem")
+        third = self.transaction("third")
+        associated = self.service.associate_transactions(
+            1, [associated.id, third.id], {"category": "Extra"}
+        )
+        self.assertIsNone(associated.subcategory)
+        for external_id in ("first", "second", "third"):
+            self.assertIsNone(self.sync(external_id))
+
+    def test_subcategory_migration_preserves_existing_rows_and_is_repeatable(self):
+        test_db.session.remove()
+        Transaction.__table__.drop(test_db.engine)
+        with test_db.engine.begin() as connection:
+            connection.execute(
+                text("CREATE TABLE transactions (id INTEGER PRIMARY KEY, name VARCHAR(120))")
+            )
+            connection.execute(text("INSERT INTO transactions (id, name) VALUES (1, 'Preservada')"))
+        TransactionRepository.initialize_subcategory_column()
+        TransactionRepository.initialize_subcategory_column()
+        with test_db.engine.connect() as connection:
+            self.assertIn(
+                "subcategory",
+                {column["name"] for column in inspect(connection).get_columns("transactions")},
+            )
+            self.assertEqual(
+                connection.execute(text("SELECT name, subcategory FROM transactions")).one(),
+                ("Preservada", None),
+            )
 
     def test_association_protects_both_ids_and_prevents_recreation(self):
         kept = self.transaction("first")

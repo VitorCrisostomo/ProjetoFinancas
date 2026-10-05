@@ -8,6 +8,7 @@ from exceptions.api_errors import NotFoundError, ValidationError
 from models.account import Account
 from models.transaction import Transaction
 from repositories.transaction_repository import TransactionRepository
+from services.category_service import CategoryService
 
 
 def _contains_reserve_reference(value):
@@ -88,9 +89,15 @@ class TransactionService:
         return opening
 
     def update_transaction(self, transaction_id, data, user_id=None):
-        """Permite editar somente nome, data e categoria, preservando os dados bancários."""
-        if not isinstance(data, dict) or not data or set(data) - {"name", "date", "category"}:
-            raise ValidationError("Somente nome, data e categoria podem ser atualizados.")
+        """Permite editar nome, data e classificação, preservando os dados bancários."""
+        if (
+            not isinstance(data, dict)
+            or not data
+            or set(data) - {"name", "date", "category", "subcategory"}
+        ):
+            raise ValidationError(
+                "Somente nome, data, categoria e subcategoria podem ser atualizados."
+            )
         transaction = self.repository.get_by_id(transaction_id)
         if not transaction or (user_id is not None and transaction.user_id != user_id):
             raise NotFoundError("Transaction not found")
@@ -105,6 +112,16 @@ class TransactionService:
 
         if transaction.is_opening_balance:
             raise ValidationError("O saldo anterior automático é recalculado pela aplicação.")
+
+        classification = None
+        if "category" in data or "subcategory" in data:
+            category = data.get("category", transaction.category)
+            subcategory = data.get(
+                "subcategory", transaction.subcategory if category == transaction.category else None
+            )
+            classification = CategoryService().validate_classification(
+                transaction.user_id, category, subcategory
+            )
 
         if "value" in data:
             if data["value"] is None or data["value"] == "" or isinstance(data["value"], bool):
@@ -124,10 +141,8 @@ class TransactionService:
                 raise ValidationError("Name is required")
             transaction.name = data["name"]
 
-        if "category" in data:
-            if not data["category"]:
-                raise ValidationError("Category is required")
-            transaction.category = data["category"]
+        if classification is not None:
+            transaction.category, transaction.subcategory = classification
 
         if "description" in data:
             transaction.description = data["description"]
@@ -138,7 +153,10 @@ class TransactionService:
             else:
                 transaction.type = data["type"]
 
-        if any(key in data for key in ("value", "date", "name", "category", "description", "type")):
+        if any(
+            key in data
+            for key in ("value", "date", "name", "category", "subcategory", "description", "type")
+        ):
             self.repository.protect_from_sync(transaction)
         return self.repository.update(transaction, commit=commit)
 
@@ -172,6 +190,7 @@ class TransactionService:
         kept = transactions[0]
         try:
             if calculate:
+                requested_data = updated_data
                 net = sum(
                     (
                         Decimal(str(transaction.value)).quantize(
@@ -185,15 +204,21 @@ class TransactionService:
                 updated_data = {
                     "name": " / ".join(transaction.name for transaction in transactions)[:120],
                     "category": kept.category,
+                    "subcategory": kept.subcategory,
                     "date": kept.date.strftime("%Y-%m-%d"),
                     **{
                         key: value
                         for key, value in updated_data.items()
-                        if key in ("name", "category", "date")
+                        if key in ("name", "category", "subcategory", "date")
                     },
                     "value": float(abs(net)),
                     "type": "income" if net >= 0 else "expense",
                 }
+                if (
+                    updated_data["category"] != kept.category
+                    and "subcategory" not in requested_data
+                ):
+                    updated_data["subcategory"] = None
             updated_transaction = self._update_transaction(kept.id, updated_data, commit=False)
             for transaction in transactions:
                 self.repository.protect_from_sync(transaction)
@@ -223,12 +248,12 @@ class TransactionService:
             "Parking": "Transporte",
             "Automotive": "Transporte",
             "Vehicle maintenance": "Transporte",
-            # Entretenimento
+            # Lazer
             "Shopping": "Compras",
             "Clothing": "Compras",
-            "Tickets": "Entretenimento",
-            "Leisure": "Entretenimento",
-            "Cinema, theater and concerts": "Entretenimento",
+            "Tickets": "Lazer",
+            "Leisure": "Lazer",
+            "Cinema, theater and concerts": "Lazer",
             # Saúde
             "Pharmacy": "Saúde",
             "Pet supplies and vet": "Saúde",
@@ -247,7 +272,7 @@ class TransactionService:
             "Late payment and overdraft costs": "Taxas e Impostos",
             "Telecommunications": "Taxas e Impostos",
             "Internet": "Taxas e Impostos",
-            "Digital services": "Entretenimento",
+            "Digital services": "Lazer",
         }
 
         return category_map.get(pluggy_category, "Extra")
@@ -341,6 +366,7 @@ class TransactionService:
             existing_tx.date = parsed_date
             existing_tx.name = name
             existing_tx.category = category
+            existing_tx.subcategory = None
             existing_tx.description = description
             existing_tx.type = app_type
             db.session.commit()

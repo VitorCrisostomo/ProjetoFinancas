@@ -1,31 +1,17 @@
-const EditableCategory = ({ currentCategory, categories, categoryIcons, onUpdate, label = 'Alterar categoria' }) => {
-  const handleChange = (e) => {
-    const newCategory = e.target.value;
-    if (newCategory !== currentCategory) {
-      onUpdate(newCategory);
-    }
+import { useRef, useState } from 'react';
+import CategoryPicker from './CategoryPicker.jsx';
+
+export default function EditableCategory({ currentCategory, currentSubcategory, categories,
+  onUpdate, label = 'Alterar categoria' }) {
+  const [isSaving, setIsSaving] = useState(false);
+  const saving = useRef(false);
+  const handleChange = async (data) => {
+    if (saving.current) return;
+    saving.current = true;
+    setIsSaving(true);
+    try { await onUpdate(data); }
+    finally { saving.current = false; setIsSaving(false); }
   };
-
-  return (
-    <span className="editable-category">
-      <select
-        value={currentCategory}
-        onChange={handleChange}
-        aria-label={label}
-        title="Clique para alterar a categoria"
-        className="editable-category-select"
-      >
-        {!categories.includes(currentCategory) && (
-          <option value={currentCategory}>{currentCategory}</option>
-        )}
-        {categories.map((cat) => (
-          <option key={cat} value={cat}>
-            {categoryIcons[cat]} {cat}
-          </option>
-        ))}
-      </select>
-    </span>
-  );
-};
-
-export default EditableCategory;
+  return <CategoryPicker categories={categories} category={currentCategory} subcategory={currentSubcategory}
+    label={label} disabled={isSaving} onChange={handleChange} />;
+}

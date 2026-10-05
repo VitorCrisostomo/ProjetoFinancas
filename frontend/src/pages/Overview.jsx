@@ -1,16 +1,22 @@
+import { useId, useState } from 'react';
 import { getOpeningBalance, getTransactionSummary } from '../utils/transactionSummary.js';
 import useTransactionPeriod from '../hooks/useTransactionPeriod.js';
 import TransactionPeriodFilter from '../components/common/TransactionPeriodFilter.jsx';
 import Card from "../components/common/Card";
 import formatCurrency from "../utils/currency";
 import { categoryIcons, categoryColors } from "../utils/category";
+import { getCategoryCatalog, getExpenseBreakdown } from '../utils/categoryCatalog.js';
 
-const OverviewPage = ({ transactions }) => {
+const OverviewPage = ({ transactions, categoryCatalog = [] }) => {
   const period = useTransactionPeriod(transactions);
-  const { totalIncome, totalExpense, balance, expensesByCategory } = getTransactionSummary(period.transactions);
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const categoryFilterId = useId();
+  const categories = getCategoryCatalog(categoryCatalog, transactions);
+  const { totalIncome, totalExpense, balance } = getTransactionSummary(period.transactions);
   const openingBalance = getOpeningBalance(transactions, period.month, period.year);
   const totalBalance = (openingBalance ?? 0) + balance;
-  const maxExpense = Math.max(...Object.values(expensesByCategory), 1);
+  const breakdown = getExpenseBreakdown(period.transactions, selectedCategory);
+  const maxExpense = Math.max(...breakdown.map((item) => item.value), 1);
 
   return (
     <div className="page-content">
@@ -21,6 +27,14 @@ const OverviewPage = ({ transactions }) => {
 
       <div className="filters-section">
         <TransactionPeriodFilter period={period} />
+        <div className="filter-group">
+          <label htmlFor={categoryFilterId}>Categoria</label>
+          <select id={categoryFilterId} className="filter-select" value={selectedCategory || ''}
+            onChange={(event) => setSelectedCategory(event.target.value || null)}>
+            <option value="">Todas as categorias</option>
+            {categories.map((category) => <option key={category.name} value={category.name}>{category.name}</option>)}
+          </select>
+        </div>
       </div>
       {period.transactions.length === 0 && (
         <p role="status">Nenhuma transação encontrada no período selecionado.</p>
@@ -99,14 +113,16 @@ const OverviewPage = ({ transactions }) => {
 
       {/* Distribuição de Despesas por Categoria */}
       <div className="section">
-        <h2>Distribuição de Despesas por Categoria</h2>
+        <h2>{selectedCategory ? `Despesas de ${selectedCategory} por subcategoria` : 'Distribuição de Despesas por Categoria'}</h2>
+        <p className="category-chart-description">
+          O filtro de categoria detalha este gráfico. Os indicadores mostram todo o período.
+        </p>
+        {breakdown.length === 0 && <p className="empty-state">Nenhuma despesa encontrada para este filtro.</p>}
         <div className="category-breakdown">
-          {Object.entries(expensesByCategory)
-            .sort((a, b) => b[1] - a[1])
-            .map(([category, value]) => (
+          {breakdown.map(({ name: category, value }) => (
               <div key={category} className="category-item">
                 <div className="category-info">
-                  <span className="category-icon">{categoryIcons[category] || '💸'}</span>
+                  <span className="category-icon">{categoryIcons[selectedCategory || category] || '🏷️'}</span>
                   <span className="category-name">{category}</span>
                 </div>
                 <div className="category-bar-container">
@@ -114,7 +130,7 @@ const OverviewPage = ({ transactions }) => {
                     className="category-bar"
                     style={{
                       width: `${(value / maxExpense) * 100}%`,
-                      backgroundColor: categoryColors[category] || '#6b7280',
+                      backgroundColor: categoryColors[selectedCategory || category] || '#6b7280',
                     }}
                   />
                 </div>

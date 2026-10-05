@@ -3,9 +3,17 @@ export const months = [
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
 ];
 
-export const getCurrentYear = (now = new Date()) => new Intl.DateTimeFormat('en-US', {
-  timeZone: 'America/Sao_Paulo', year: 'numeric',
-}).format(now);
+export const getCurrentPeriod = (now = new Date()) => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/Sao_Paulo', year: 'numeric', month: 'numeric',
+  }).formatToParts(now);
+  return {
+    month: parts.find((part) => part.type === 'month').value,
+    year: parts.find((part) => part.type === 'year').value,
+  };
+};
+
+export const getCurrentYear = (now = new Date()) => getCurrentPeriod(now).year;
 
 export const normalizeTransactionPeriod = (month, year, now = new Date()) => ({
   month,

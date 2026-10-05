@@ -2,10 +2,8 @@ import TransactionRow from '../common/TransactionRow.jsx';
 import { categoryIcons } from '../../utils/category.jsx';
 import { groupTransactionsByDate } from '../../utils/transactionList.js';
 
-const allAvailableCategories = Object.keys(categoryIcons);
-
 export default function TransactionTable({ displayedTransactions, filteredTransactions,
-  selectedIds, handleSelectTransaction, handleUpdateCategory, handleOpenEditModal }) {
+  selectedIds, handleSelectTransaction, handleUpdateCategory, handleOpenEditModal, categoryCatalog }) {
   return (
     <div className="section">
       <div className="transactions-count">
@@ -49,7 +47,7 @@ export default function TransactionTable({ displayedTransactions, filteredTransa
                   onSelect={handleSelectTransaction}
                   onUpdateTransaction={handleUpdateCategory}
                   onOpenEditModal={handleOpenEditModal}
-                  allAvailableCategories={allAvailableCategories}
+                  allAvailableCategories={categoryCatalog}
                   categoryIcons={categoryIcons}
                 />
                 ))}

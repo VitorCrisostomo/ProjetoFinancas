@@ -15,6 +15,7 @@ class Transaction(db.Model):
     date = db.Column(db.DateTime, nullable=False)
     name = db.Column(db.String(120), nullable=False)
     category = db.Column(db.String(50), nullable=True)
+    subcategory = db.Column(db.String(50), nullable=True)
     description = db.Column(db.String(255), nullable=True)
     type = db.Column(db.String(20), nullable=False)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
@@ -34,6 +35,7 @@ class Transaction(db.Model):
             "date": self.date.isoformat() if self.date else None,
             "name": self.name,
             "category": self.category,
+            "subcategory": self.subcategory,
             "description": self.description,
             "type": self.type,
             "user_id": self.user_id,

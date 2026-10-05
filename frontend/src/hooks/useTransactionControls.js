@@ -4,16 +4,18 @@ import useTransactionPeriod from './useTransactionPeriod.js';
 import { getOpeningBalance, getTransactionSummary } from '../utils/transactionSummary.js';
 import { getAssociationData } from '../utils/transactionAssociation.js';
 import { sortTransactionsByDate } from '../utils/transactionList.js';
+import { getCategoryCatalog } from '../utils/categoryCatalog.js';
 
 export default function useTransactionControls({ 
   transactions, 
+  categoryCatalog = [],
   onUpdateTransaction,
   onAssociateTransactions,
   onSyncTransactions,
 }) {
   const [modalOpen, setModalOpen] = useState(false);
   const [transactionToEdit, setTransactionToEdit] = useState(null);
-  const [filterCategory, setFilterCategory] = useState('all');
+  const [filterCategory, setFilterCategory] = useState('');
   const [filterType, setFilterType] = useState('all');
   const [selectedIds, setSelectedIds] = useState([]);
   const [isAssociating, setIsAssociating] = useState(false);
@@ -23,11 +25,12 @@ export default function useTransactionControls({
   const [syncError, setSyncError] = useState('');
   const period = useTransactionPeriod(transactions);
 
-  const categories = ['all', ...new Set(transactions.map((t) => t.category))];
+  const categories = ['', ...new Set(transactions.map((t) => t.category).filter(Boolean))];
+  const availableCategories = getCategoryCatalog(categoryCatalog, transactions);
 
   // Filtragem
   const filteredTransactions = sortTransactionsByDate(period.transactions.filter((t) => {
-    const categoryMatch = filterCategory === 'all' || t.category === filterCategory;
+    const categoryMatch = filterCategory === '' || t.category === filterCategory;
     const typeMatch = filterType === 'all' || t.type === filterType;
     return categoryMatch && typeMatch;
   }));
@@ -132,6 +135,7 @@ export default function useTransactionControls({
     filterType, setFilterType, isSyncing, isAssociating, selectedIds, period,
     clearSelection: () => setSelectedIds([]),
     categories, filteredTransactions, displayedTransactions, filteredBalance,
+    availableCategories,
     openingBalance, totalBalance,
     handleSelectTransaction, handleExecuteAssociation, handleSave,
     handleUpdateCategory,
