@@ -644,6 +644,50 @@
   overflow-x: auto;
 }
 
+.editable-category {
+  position: relative;
+  display: block;
+  min-width: 130px;
+}
+
+.editable-category::after {
+  content: '▾';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+
+.editable-category-select {
+  appearance: none;
+  width: 100%;
+  min-height: 36px;
+  padding: 4px 28px 4px 8px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background-color: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.editable-category-select:hover {
+  background-color: var(--bg-hover);
+}
+
+.editable-category-select:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 2px;
+}
+
+.editable-category-select option {
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+}
+
 .transactions-table {
   width: 100%;
   border-collapse: collapse;
