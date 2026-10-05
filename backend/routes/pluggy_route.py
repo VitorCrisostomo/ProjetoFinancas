@@ -21,11 +21,11 @@ def handle_api_error(error):
     return jsonify({"message": error.message}), error.status_code
 
 
-@pluggy_routes.route("/pluggy/connect_token", methods=["GET"])
+@pluggy_routes.route("/pluggy/connect_token", methods=["POST"])
 @jwt_required()
 def generate_connect_token():
     """Retorna o token necessário para abrir o widget bancário."""
-    token = pluggy_service.get_connect_token()
+    token = pluggy_service.get_connect_token(int(get_jwt_identity()))
     return jsonify({"connectToken": token}), 200
 
 
@@ -33,7 +33,9 @@ def generate_connect_token():
 @jwt_required()
 def sync_pluggy_accounts():
     """Sincroniza as contas do itemId recebido para o usuário autenticado."""
-    data = request.get_json()
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        raise APIError("Informe o itemId da conexão.", 400)
     item_id = data.get("itemId")
     current_user_id = int(get_jwt_identity())
 
@@ -59,7 +61,10 @@ def sync_pluggy_transactions():
     # Consulta apenas dados e saldos das contas; as transações seguem restritas ao mês pedido.
     latest_accounts = {}
     for item_id in {account.itemId for account in user_accounts}:
-        for data in pluggy_service.get_accounts_from_item(item_id):
+        pluggy_service.verify_item_owner(item_id, current_user_id)
+        item_accounts = pluggy_service.get_accounts_from_item(item_id)
+        pluggy_service.validate_item_accounts(item_accounts, item_id, current_user_id)
+        for data in item_accounts:
             latest_accounts[data.get("id")] = data
     for account in user_accounts:
         if account.id not in latest_accounts or latest_accounts[account.id].get("balance") is None:

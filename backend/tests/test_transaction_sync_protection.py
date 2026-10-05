@@ -33,6 +33,7 @@ with patch.dict(
 ):
     from exceptions.api_errors import ValidationError
     from models.account import Account
+    from models.auth_session import UserSecurity  # noqa: F401
     from models.category import Category, Subcategory
     from models.transaction import Transaction
     from models.transaction_sync_protection import TransactionSyncProtection
@@ -43,6 +44,13 @@ with patch.dict(
     from services.category_service import DEFAULT_CATEGORIES, DEFAULT_SUBCATEGORIES, CategoryService
     from services.transaction_service import TransactionService
 
+    isolated_modules = {
+        name: module
+        for name, module in sys.modules.items()
+        if name == "config"
+        or name.startswith(("models", "routes", "services", "repositories", "exceptions"))
+    }
+
 test_app.register_blueprint(pluggy_route.pluggy_routes)
 test_app.register_blueprint(transaction_route.transaction_routes)
 test_app.register_blueprint(category_routes.category_routes)
@@ -50,6 +58,8 @@ test_app.register_blueprint(category_routes.category_routes)
 
 class TransactionSyncProtectionTests(unittest.TestCase):
     def setUp(self):
+        self.module_patch = patch.dict(sys.modules, isolated_modules)
+        self.module_patch.start()
         self.context = test_app.app_context()
         self.context.push()
         test_db.create_all()
@@ -72,6 +82,7 @@ class TransactionSyncProtectionTests(unittest.TestCase):
         test_db.session.remove()
         test_db.drop_all()
         self.context.pop()
+        self.module_patch.stop()
 
     def transaction(self, external_id=None, value=100):
         transaction = Transaction(
@@ -857,11 +868,12 @@ class TransactionSyncProtectionTests(unittest.TestCase):
         self.service.update_transaction(edited.id, {"name": "Manual"})
         self.service.reconcile_opening_balance(test_db.session.get(Account, "account"))
         with (
+            patch.object(pluggy_route.pluggy_service, "get_item", return_value={"id": "item"}),
             patch.object(
                 pluggy_route.pluggy_service,
                 "get_accounts_from_item",
                 return_value=[
-                    {"id": "account", "balance": 1000},
+                    {"id": "account", "itemId": "item", "balance": 1000},
                 ],
             ) as fetch_accounts,
             patch.object(

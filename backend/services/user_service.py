@@ -1,145 +1,136 @@
-"""Implementa cadastro, autenticação e verificação de usuários."""
+"""Cadastro administrativo, login e alterações do próprio perfil."""
 
-import random
+import re
 
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from exceptions.api_errors import NotFoundError, ValidationError
+from config import db
+from exceptions.api_errors import APIError, NotFoundError, ValidationError
+from models.account import Account
+from models.auth_session import AuthSession, UserSecurity
+from models.category import Category, Subcategory
+from models.transaction import Transaction
+from models.transaction_sync_protection import TransactionSyncProtection
 from models.user import User
 from repositories.user_repository import UserRepository
+from services.auth_service import AuthService
+
+_DUMMY_PASSWORD_HASH = generate_password_hash("unused-password-for-timing-only")
 
 
 class UserService:
-    """Regras de cadastro, login e verificação de usuários."""
-
     def __init__(self):
         self.repository = UserRepository()
 
-    def get_all_users(self):
-        return self.repository.get_all()
+    @staticmethod
+    def normalize_email(email):
+        if not isinstance(email, str) or len(email) > 120:
+            raise ValidationError("Informe um e-mail válido.")
+        email = email.strip().lower()
+        if not re.fullmatch(r"[^\s@]+@[^\s@]+\.[^\s@]+", email):
+            raise ValidationError("Informe um e-mail válido.")
+        return email
+
+    @staticmethod
+    def validate_password(password):
+        if not isinstance(password, str) or not 12 <= len(password) <= 128:
+            raise ValidationError("A senha deve ter entre 12 e 128 caracteres.")
+        return password
+
+    @staticmethod
+    def validate_name(name):
+        if not isinstance(name, str) or not name.strip() or len(name.strip()) > 100:
+            raise ValidationError("Informe um nome entre 1 e 100 caracteres.")
+        return name.strip()
 
     def authenticate_user(self, data):
-        """Valida as credenciais e exige que o cadastro esteja verificado."""
-        email = data.get("email")
+        if not isinstance(data, dict):
+            raise ValidationError("Informe e-mail e senha.")
+        email = self.normalize_email(data.get("email"))
         password = data.get("password")
-
-        if not email or not password:
-            raise ValidationError("Email e senha são obrigatórios")
-
+        if not isinstance(password, str) or not 1 <= len(password) <= 128:
+            raise ValidationError("Informe e-mail e senha.")
         user = self.repository.get_by_email(email)
-
-        if not user or not self.check_password(user, password):
-            raise ValidationError("Email ou senha incorretos")
-
-        if not user.is_verified:
-            raise ValidationError("Por favor, verifique seu e-mail antes de fazer login.")
-
+        valid = check_password_hash(user.password if user else _DUMMY_PASSWORD_HASH, password)
+        if not user or not valid or not user.is_verified:
+            raise APIError("E-mail ou senha incorretos.", 401)
         return user
 
     def create_user(self, data):
-        """Cria ou renova cadastro pendente e imprime o código no terminal."""
-        name = data.get("name")
-        email = data.get("email")
-        password = data.get("password")
-
-        if not name or not email or not password:
-            raise ValidationError("Preencha todos os campos")
-
-        existing_user = self.repository.get_by_email(email)
-        if existing_user:
-            # Cadastros verificados não podem ser recriados com o mesmo e-mail.
-            if existing_user.is_verified:
-                raise ValidationError("Este email já está em uso")
-            else:
-                # Cadastros pendentes recebem novos dados e um novo código.
-
-                code = str(random.randint(100000, 999999))
-                existing_user.name = name
-                existing_user.password = generate_password_hash(password)
-                existing_user.verification_code = code
-
-                self.repository.update(existing_user)
-
-                print("\n" + "=" * 50)
-                print(f"📧 NOVO EMAIL SIMULADO PARA: {email}")
-                print(f"Seu novo código FinanceHub é: {code}")
-                print("=" * 50 + "\n")
-
-                return existing_user
-
-        hashed_password = generate_password_hash(password)
-
-        code = str(random.randint(100000, 999999))
-
-        user = User(
-            name=name,
-            email=email,
-            password=hashed_password,
-            is_verified=False,
-            verification_code=code,
+        """Usado somente pelo comando local do administrador, sem rota pública."""
+        if not isinstance(data, dict):
+            raise ValidationError("Informe os dados do usuário.")
+        name = self.validate_name(data.get("name"))
+        email = self.normalize_email(data.get("email"))
+        password = self.validate_password(data.get("password"))
+        if self.repository.get_by_email(email):
+            raise ValidationError("Este e-mail já está em uso.")
+        return self.repository.create(
+            User(
+                name=name,
+                email=email,
+                password=generate_password_hash(password),
+                is_verified=True,
+                verification_code=None,
+            )
         )
 
-        created_user = self.repository.create(user)
-
-        # O envio de e-mail é simulado pelo código impresso no terminal.
-        print("\n" + "=" * 50)
-        print(f"📧 EMAIL SIMULADO PARA: {email}")
-        print(f"Seu código de verificação FinanceHub é: {code}")
-        print("=" * 50 + "\n")
-
-        return created_user
-
-    def check_password(self, user, password):
-        return check_password_hash(user.password, password)
-
-    def update_user(self, user_id, data):
-
-        username = data.get("firstName")
-        password = data.get("password")
-
-        if not username:
-            raise ValidationError("First name is required")
-
-        if not password:
-            raise ValidationError("Password is invalid")
-
+    def get_own_user(self, user_id, current_user_id):
+        if user_id != current_user_id:
+            raise NotFoundError("Usuário não encontrado.")
         user = self.repository.get_by_id(user_id)
-
         if not user:
-            raise NotFoundError("User not found")
+            raise NotFoundError("Usuário não encontrado.")
+        return user
 
-        user.username = username
-        user.password = password
+    @staticmethod
+    def require_current_password(user, data):
+        password = data.get("current_password")
+        if (
+            not isinstance(password, str)
+            or not 1 <= len(password) <= 128
+            or not check_password_hash(user.password, password)
+        ):
+            raise APIError("Confirme sua senha atual para esta operação.", 403)
 
+    def update_user(self, user_id, data, current_user_id):
+        user = self.get_own_user(user_id, current_user_id)
+        if not isinstance(data, dict) or not data:
+            raise ValidationError("Informe os campos que deseja alterar.")
+        if set(data) - {"name", "firstName", "password", "current_password"}:
+            raise ValidationError("Campos de atualização não permitidos.")
+        self.require_current_password(user, data)
+        name = data.get("name", data.get("firstName"))
+        if "name" in data or "firstName" in data:
+            name = self.validate_name(name)
+        password = self.validate_password(data["password"]) if "password" in data else None
+        if name is None and password is None:
+            raise ValidationError("Informe um nome ou uma nova senha.")
+        if name is not None:
+            user.name = name
+        if password is not None:
+            user.password = generate_password_hash(password)
+            AuthService.revoke_user_sessions(user_id)
         return self.repository.update(user)
 
-    def delete_user(self, user_id):
-        user = self.repository.get_by_id(user_id)
-
-        if not user:
-            raise NotFoundError("User not found")
-
-        self.repository.delete(user)
-
-    def verify_account(self, data):
-        """Confirma o código do cadastro e remove o código após a verificação."""
-        email = data.get("email")
-        code = data.get("code")
-
-        user = self.repository.get_by_email(email)
-
-        if not user:
-            raise NotFoundError("Usuário não encontrado")
-
-        if user.is_verified:
-            raise ValidationError("Esta conta já está verificada")
-
-        if user.verification_code != code:
-            raise ValidationError("Código inválido. Tente novamente.")
-
-        # O código é descartado após a confirmação do cadastro.
-        user.is_verified = True
-        user.verification_code = None
-        self.repository.update(user)
-
-        return user
+    def delete_user(self, user_id, data, current_user_id):
+        """Exclui apenas o próprio perfil e seus dependentes, em uma operação."""
+        user = self.get_own_user(user_id, current_user_id)
+        if not isinstance(data, dict):
+            raise ValidationError("Confirme sua senha atual.")
+        self.require_current_password(user, data)
+        try:
+            category_ids = db.session.query(Category.id).filter_by(user_id=user_id)
+            Subcategory.query.filter(Subcategory.category_id.in_(category_ids)).delete(
+                synchronize_session=False
+            )
+            Category.query.filter_by(user_id=user_id).delete()
+            TransactionSyncProtection.query.filter_by(user_id=user_id).delete()
+            Transaction.query.filter_by(user_id=user_id).delete()
+            Account.query.filter_by(user_id=user_id).delete()
+            AuthSession.query.filter_by(user_id=user_id).delete()
+            UserSecurity.query.filter_by(user_id=user_id).delete()
+            self.repository.delete(user)
+        except Exception:
+            db.session.rollback()
+            raise

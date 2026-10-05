@@ -22,6 +22,8 @@ O fluxo de dados segue: página → hook → serviço → API. Componentes receb
 
 `AuthenticatedDashboard` instancia os hooks de dados uma vez por sessão e passa dados e ações para as páginas. Trocar de página mantém os dados; sair desmonta a aplicação autenticada e descarta seu estado.
 
+`useAuth` restaura o próprio perfil em `/auth/session` antes de montar o dashboard. JWTs ficam em cookies HttpOnly; a proteção CSRF fica em memória. Login/logout são comunicados às outras abas por BroadcastChannel, que revalidam a sessão e descartam o dashboard anterior. Uma resposta 401 encerra a sessão local; respostas atrasadas de uma sessão anterior não encerram um novo login. O cadastro é feito pelo administrador do servidor, sem formulário público.
+
 Para adicionar uma página, registre-a em `navigation.js` e forneça suas propriedades no mapa `pageProps` de `AuthenticatedDashboard.jsx`.
 
 ## Hooks
@@ -37,11 +39,11 @@ Os hooks de dados retornam resultados ou lançam erros. Os controles de interfac
 
 ## Serviços
 
-Os serviços retornam `Response`. `readResponse`, em `services/api.js`, interpreta respostas nos hooks de dados e converte falhas HTTP em erros. O cliente comum adiciona o JWT e serializa JSON.
+Os serviços retornam `Response`. `readResponse`, em `services/api.js`, interpreta respostas nos hooks de dados e converte falhas HTTP em erros. O cliente comum envia cookies com `credentials: include`, adiciona `X-CSRF-TOKEN` às escritas autenticadas e serializa JSON. Não armazena nem lê JWTs no localStorage.
 
 Transações são criadas pela sincronização mensal da Pluggy e pelo ajuste automático de saldo anterior. A interface oferece sincronização, associação e edição de nome, data, categoria e subcategoria opcional. Valor e tipo não fazem parte do formulário nem da requisição de edição; o backend rejeita campos adicionais. Criação manual, importação CSV e exclusão individual foram removidas. Lançamentos anteriores permanecem salvos, incluindo os antigos registros manuais.
 
-`VITE_API_URL` configura o endereço do backend; consulte `.env.example`.
+`VITE_API_URL` configura o endereço do backend; consulte `.env.example`. O padrão é `/api`: o Vite encaminha esse prefixo para localhost:5000 e usa a porta 5173 sem escolher uma alternativa automaticamente. Em produção, o proxy HTTPS deve servir frontend e API na mesma origem e encaminhar `/api`, removendo o prefixo.
 
 ## Verificação
 

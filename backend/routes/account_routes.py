@@ -1,6 +1,6 @@
 """Expõe os endpoints de contas protegidos por JWT."""
 
-from flask import Blueprint, jsonify, request
+from flask import Blueprint, jsonify
 from flask_jwt_extended import get_jwt_identity, jwt_required
 
 from exceptions.api_errors import APIError
@@ -25,22 +25,6 @@ def list_accounts():
     accounts = account_service.get_accounts_by_user_id(current_user_id)
 
     return jsonify([account.to_json() for account in accounts]), 200
-
-
-@account_routes.route("/accounts/sync", methods=["POST"])
-@jwt_required()
-def sync_account():
-    """Sincroniza os dados de uma conta para o usuário autenticado."""
-    data = request.get_json()
-
-    if not data:
-        return jsonify({"message": "Nenhum dado fornecido"}), 400
-
-    current_user_id = int(get_jwt_identity())
-
-    account = account_service.sync_account(data, current_user_id)
-
-    return jsonify(account.to_json()), 200
 
 
 @account_routes.route("/accounts/<string:account_id>", methods=["DELETE"])

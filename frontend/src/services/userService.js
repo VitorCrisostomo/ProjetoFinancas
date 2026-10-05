@@ -1,25 +1,16 @@
 import { apiRequest } from './api.js';
 
-// Mantém o contrato dos serviços de usuários existentes.
+// A API retorna somente o perfil do usuário autenticado.
 export const fetchUsers = async () => {
-    const response = await apiRequest('/users', { authenticated: false });
-    if (!response.ok) {
-        throw new Error("Erro ao buscar usuários");
-    }
-    return await response.json();
+    const response = await apiRequest('/users');
+    if (!response.ok) throw new Error('Erro ao buscar seu perfil');
+    return response.json();
 };
 
-export const createUser = async (data) => {
-    const response = await apiRequest('/create_users', { method: 'POST', data, authenticated: false });
-    return response;
-};
+export const updateUser = (id, data) =>
+    apiRequest(`/update_users/${encodeURIComponent(id)}`, { method: 'PATCH', data });
 
-export const updateUser = async (id, data) => {
-    const response = await apiRequest(`/update_users/${encodeURIComponent(id)}`, { method: 'PATCH', data, authenticated: false });
-    return response;
-};
-
-export const deleteUser = async (id) => {
-    const response = await apiRequest(`/delete_users/${encodeURIComponent(id)}`, { method: 'DELETE', authenticated: false });
-    return response;
-};
+export const deleteUser = (id, currentPassword) =>
+    apiRequest(`/delete_users/${encodeURIComponent(id)}`, {
+        method: 'DELETE', data: { current_password: currentPassword },
+    });

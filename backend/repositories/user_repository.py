@@ -1,5 +1,7 @@
 """Consulta e persiste usuários utilizando a sessão do SQLAlchemy."""
 
+from sqlalchemy import func
+
 from config import db
 from models.user import User
 
@@ -7,17 +9,11 @@ from models.user import User
 class UserRepository:
     """Operações de usuários; cada escrita confirma a sessão atual."""
 
-    def get_all(self):
-        return User.query.all()
-
-    def get_by_username(self, username):
-        return User.query.filter_by(username=username).first()
-
     def get_by_id(self, user_id):
-        return User.query.get(user_id)
+        return db.session.get(User, user_id)
 
     def get_by_email(self, email):
-        return User.query.filter_by(email=email).first()
+        return User.query.filter(func.lower(User.email) == email.lower()).first()
 
     def create(self, user):
         db.session.add(user)

@@ -4,12 +4,14 @@ import useAuth from './hooks/useAuth.js';
 import './styles/App.css';
 
 export default function App() {
-  const { user, isAuthenticated, login, register, verifyEmail, logout } = useAuth();
+  const { user, isAuthenticated, isLoading, sessionError, login, logout } = useAuth();
+
+  if (isLoading) return <div className="app-container" role="status">Verificando sessão...</div>;
 
   if (!isAuthenticated) {
     return (
       <div className="app-container">
-        <LoginPage onLogin={login} onRegister={register} onVerify={verifyEmail} />
+        <LoginPage onLogin={login} sessionError={sessionError} />
       </div>
     );
   }

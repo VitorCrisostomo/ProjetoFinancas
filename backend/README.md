@@ -17,7 +17,7 @@ API Flask com Flask-SQLAlchemy, Flask-JWT-Extended, Flask-CORS e integração HT
 
 O fluxo usual é rota → serviço → repositório → modelo/banco. A sincronização de transações também consulta os modelos e utiliza a sessão diretamente no serviço; a rota Pluggy consulta as contas do usuário diretamente. Cada escrita dos repositórios confirma a sessão com `commit()`.
 
-Ao executar `python main.py`, os modelos são importados e `db.create_all()` é chamado antes de iniciar o servidor com debug. Essa chamada cria tabelas ausentes; não migra tabelas existentes.
+Ao executar `python main.py`, a inicialização cria tabelas ausentes e executa as migrações incrementais existentes. Debug fica desativado por padrão. Em um servidor WSGI, execute `python -m flask --app main init-db` uma vez antes de iniciar o serviço; importar `main:app` não migra o banco.
 
 ## Configuração e execução
 
@@ -26,28 +26,31 @@ Instale as dependências e ative o ambiente virtual conforme o [README da raiz](
 | Variável | Finalidade |
 |---|---|
 | `JWT_SECRET_KEY` | Chave de assinatura dos tokens de autenticação. |
+| `AUTH_COOKIE_SECURE` | `true` por padrão; exige HTTPS. Use `false` somente no desenvolvimento local com HTTP. |
+| `AUTH_ALLOWED_ORIGINS` | Origens exatas separadas por vírgula. Em produção, somente o endereço HTTPS da aplicação. |
 | `DATABASE_URI` | URI SQLAlchemy. Exemplo local: `sqlite:///financehub.db`. |
 | `PLUGGY_CLIENT_ID` | Identificador da integração Pluggy. |
 | `PLUGGY_CLIENT_SECRET` | Segredo da integração Pluggy. |
 
-Gere uma chave local com `python -c "import secrets; print(secrets.token_hex(32))"` e copie o resultado para `JWT_SECRET_KEY`. O `.env` local está ignorado pelo Git; o exemplo não contém credenciais reais.
+Gere uma chave local com `python -c "import secrets; print(secrets.token_hex(32))"` e copie o resultado para `JWT_SECRET_KEY`. A aplicação recusa chaves com menos de 32 caracteres. O `.env` local está ignorado pelo Git; o exemplo não contém credenciais reais. Se estiver reutilizando um `.env`, acrescente as novas variáveis a partir do exemplo.
 
 Execute `python main.py` a partir de `backend/`. A API de desenvolvimento atende na porta 5000. Os imports atuais são resolvidos a partir dessa pasta.
 
 ## Contratos HTTP
 
-Requisições JSON usam `Content-Type: application/json`. As rotas com JWT exigem `Authorization: Bearer <token>`. Os dados serializados de usuários não incluem senha nem código de verificação.
+Requisições JSON usam `Content-Type: application/json`. A sessão JWT fica exclusivamente em cookie `HttpOnly`, `SameSite=Lax` e, por padrão, `Secure`. O navegador envia `credentials: include`. Escritas autenticadas exigem `X-CSRF-TOKEN`, recebido no login ou em `GET /auth/session` e mantido somente em memória pelo frontend. Tokens Bearer antigos não são aceitos. Os dados serializados não incluem senha, código de verificação ou JWT.
 
 | Método | Caminho | JWT | Entrada principal |
 |---|---|---|---|
-| POST | `/create_users` | Não | `name`, `email`, `password` |
+| POST | `/create_users` | — | Cadastro público fechado; retorna 403 |
 | POST | `/login` | Não | `email`, `password` |
-| POST | `/verify_email` | Não | `email`, `code` |
-| GET | `/users` | Não | — |
-| PATCH | `/update_users/<user_id>` | Não | `firstName`, `password` |
-| DELETE | `/delete_users/<user_id>` | Não | — |
+| POST | `/verify_email` | — | Verificação pública fechada; retorna 403 |
+| GET | `/auth/session` | Sim | Próprio perfil e proteção CSRF |
+| POST | `/logout` | Sim | Revoga a sessão atual e remove o cookie |
+| GET | `/users` | Sim | Apenas o próprio perfil, em `users` |
+| PATCH | `/update_users/<user_id>` | Sim | Próprio ID; `name` ou `firstName`, senha nova opcional, `current_password` obrigatório |
+| DELETE | `/delete_users/<user_id>` | Sim | Próprio ID; `current_password` obrigatório; remove também os próprios dados financeiros |
 | GET | `/accounts` | Sim | — |
-| POST | `/accounts/sync` | Sim | Dados da conta externa, incluindo `id` |
 | DELETE | `/accounts/<account_id>` | Sim | — |
 | GET | `/transactions` | Sim | — |
 | PATCH | `/update_transactions/<transaction_id>` | Sim | `name`, `date`, `category` e `subcategory` opcional; demais campos são rejeitados |
@@ -55,11 +58,11 @@ Requisições JSON usam `Content-Type: application/json`. As rotas com JWT exige
 | POST | `/categories` | Sim | `name` |
 | POST | `/categories/<category_id>/subcategories` | Sim | `name`, dentro de uma categoria do usuário |
 | POST | `/transactions/associate` | Sim | `transaction_ids` (dois ou mais IDs), `updated_data` opcional; aceita também o formato anterior com `keep_id` e `remove_id` |
-| GET | `/pluggy/connect_token` | Sim | — |
+| POST | `/pluggy/connect_token` | Sim | — |
 | POST | `/pluggy/accounts/sync` | Sim | `itemId` |
 | POST | `/pluggy/transactions/sync` | Sim | `mode: "month"`, `month`, `year` obrigatórios |
 
-Criação de usuários, categorias e subcategorias retorna 201 no sucesso; as demais rotas retornam 200. Erros derivados de `APIError` retornam `{"message": "..."}` com o status associado. Erros do Flask e do JWT seguem os handlers das respectivas bibliotecas.
+Criação de categorias e subcategorias retorna 201; demais operações habilitadas retornam 200. Erros de serviço e de autenticação usam `{"message": "..."}`. Sessões ausentes, expiradas, revogadas ou CSRF inválido retornam 401. Tentativas de acessar recursos alheios são rejeitadas no servidor. Respostas da API usam `Cache-Control: no-store`.
 
 ### Categorias e subcategorias
 
@@ -77,13 +80,42 @@ Reinicie o backend com `python main.py` para aplicar a atualização do banco. A
 
 ### Cadastro e autenticação
 
-O cadastro gera um código de seis dígitos e o imprime no terminal, simulando o envio de e-mail. Repetir o cadastro para um e-mail ainda não verificado renova seus dados e o código. O login exige senha válida e cadastro verificado; retorna `access_token` e `user`.
+O cadastro público e a verificação por e-mail simulada foram desativados. Somente quem administra o servidor e tem acesso ao seu terminal pode criar acessos. Não há função administrativa acessível aos familiares pela API.
+
+Na pasta `backend/`, com o ambiente Python ativo:
+
+```sh
+python -m flask --app main init-db
+python -m flask --app main create-user
+```
+
+O comando solicita nome, e-mail e senha, com confirmação e entrada oculta. Senhas novas devem ter entre 12 e 128 caracteres e recebem hash no servidor. E-mails são normalizados; um cadastro existente, mesmo pendente, nunca é sobrescrito por uma tentativa de criação.
+
+Para recuperar uma conta existente, inclusive uma conta antiga pendente de verificação ou com senha inválida:
+
+```sh
+python -m flask --app main reset-password
+```
+
+O administrador informa e-mail e nova senha. O comando confirma o acesso e revoga todas as sessões anteriores. Não envia e-mail nem imprime a senha.
+
+O login retorna `user` e `csrf_token`; o JWT é entregue somente no cookie. A sessão expira em oito horas, sem renovação automática. O frontend restaura o perfil após recarregar a página e comunica login/logout às outras abas da mesma origem. Cada navegador compartilha sua sessão entre abas; dispositivos diferentes têm sessões independentes.
+
+As tabelas adicionais `auth_sessions`, `login_attempts` e `user_security` preservam a revogação, as falhas recentes e uma identidade bancária opaca. Nenhuma coluna existente foi alterada. Reiniciar com `python main.py` cria essas tabelas automaticamente; para WSGI, use `init-db`. Faça backup antes de aplicar a atualização. Sessões antigas exigem novo login; senhas e histórico financeiro existentes são preservados.
+
+Toda rota autenticada confere sessão persistida, proprietário, validade e usuário ainda verificado. Logout revoga apenas a sessão atual; troca de senha revoga todas as sessões daquele usuário. Mudanças de perfil e exclusão exigem senha atual e o próprio ID. A senha nova recebe um hash novo, mesmo se o texto enviado se parecer com um hash.
+
+Falhas de login são limitadas a cinco por e-mail ou vinte por endereço de origem em quinze minutos, com registros persistentes e identificadores protegidos por HMAC. Limites continuam válidos após reiniciar o servidor. A API usa o endereço de conexão, sem confiar em `X-Forwarded-For` enviado pelo cliente. Ao implantar atrás de proxy, configure encaminhamento confiável na infraestrutura; até lá, o limite por IP pode ser compartilhado pelos usuários do proxy.
+
+A configuração CORS admite somente as origens especificadas e permite cookies. Requisições que alteram dados com uma origem não autorizada também são recusadas antes de executar a rota. Para acesso remoto, mantenha frontend e API na mesma origem HTTPS e `AUTH_COOKIE_SECURE=true`; o uso local de HTTP não é configuração de produção.
 
 ### Contas e sincronização
 
 O ID de conta é o UUID externo fornecido pela Pluggy. Novas contas exigem `type`, `subtype`, `itemId`, `number`, `name` e `balance`. Contas existentes atualizam saldo, nome e dados bancários/de crédito, mantendo o vínculo com o usuário.
 
-O widget recebe `connectToken`; após a conexão, o frontend envia `itemId` para sincronizar as contas. A sincronização de transações percorre as contas do usuário e cria ou atualiza lançamentos por `external_id`. A busca segue todos os cursores `next` em `/v2/transactions`, conforme a [documentação da Pluggy](https://v2.docs.pluggy.ai/en/reference/transaction/transactions-list-by-cursor).
+O widget recebe `connectToken` vinculado ao usuário por `options.clientUserId`, usando a referência opaca persistida em `user_security`. O frontend envia apenas `itemId`; o servidor consulta `/items/<id>` e valida esse vínculo antes de buscar ou salvar contas. IDs numéricos de usuário eventualmente reutilizados não herdam conexões. A geração de token agora usa POST e exige CSRF. O antigo `/accounts/sync`, que aceitava dados bancários fornecidos pelo navegador, foi removido. A sincronização de transações percorre as contas do usuário e cria ou atualiza lançamentos por `external_id`. A busca segue todos os cursores `next` em `/v2/transactions`, conforme a [documentação da Pluggy](https://v2.docs.pluggy.ai/en/reference/transaction/transactions-list-by-cursor).
+
+Itens antigos sem referência, ou com a referência numérica antiga, só são aceitos quando já possuem contas locais e todas pertencem ao usuário autenticado. Itens desconhecidos sem vínculo são recusados e exigem nova conexão. Não há atribuição automática de conexões de terceiros. Antes de sincronizar transações, o servidor repete a validação dos itens e verifica que as contas retornadas pertencem à conexão consultada. A lógica de lançamentos editados/associados e de saldo anterior permanece preservada.
 
 A sincronização é solicitada manualmente com `{"mode": "month", "year": 2026, "month": 10}`. Mês e ano devem ser números inteiros. O backend valida os valores e envia `dateFrom` e `dateTo` inclusivos, do primeiro ao último dia do mês. Requisições sem período ou com `mode: "all"` são rejeitadas. Conectar uma conta salva seus dados e o ajuste local de saldo anterior, sem importar transações bancárias automaticamente. Essa busca consulta o histórico já disponibilizado pelo provedor; não força uma atualização da conexão bancária.
 
@@ -97,13 +129,13 @@ Ao conectar ou reconectar, conta e ajuste são salvos juntos. Na sincronização
 
 O saldo anterior é uma reconciliação estimada: períodos ausentes no histórico também entram na diferença. Não representa comprovação do saldo histórico naquela data. O cálculo usa o último saldo disponibilizado pela instituição e não garante atualização bancária em tempo real.
 
-Os cursores são utilizados sem reconstrução; respostas inválidas, cursores repetidos e falhas do provedor retornam erro. Autenticação e consulta de transações têm timeout de 30 segundos por requisição. A sincronização preserva lançamentos manuais e transações de outros períodos. Como a persistência continua individual, uma falha em uma conta posterior pode deixar dados de contas anteriores já gravados.
+Os cursores são utilizados sem reconstrução; respostas inválidas, cursores repetidos e falhas do provedor retornam erro. Todas as consultas Pluggy têm timeout de 30 segundos por requisição. A sincronização preserva lançamentos manuais e transações de outros períodos. Como a persistência continua individual, uma falha em uma conta posterior pode deixar dados de contas anteriores já gravados.
 
 A sincronização ignora identificadores externos protegidos em `transaction_sync_protections`. Qualquer edição de campos do lançamento, inclusive apenas categoria, protege a transação inteira. Uma associação protege os identificadores de ambos os lançamentos e mantém a proteção do excluído, impedindo sua recriação. Edição, proteção e exclusão da associação são confirmadas na mesma transação do banco; falhas desfazem a operação. Lançamentos novos e ainda não editados continuam sendo criados ou atualizados normalmente.
 
 Ao iniciar `python main.py`, o repositório cria a tabela de proteção se estiver ausente e protege todos os identificadores externos existentes. Essa inicialização é executada apenas uma vez e preserva edições antigas, já que o banco não mantinha uma marcação de alterações. Não modifica valores nem recria lançamentos. Identificadores excluídos em associações anteriores à implementação não podem ser recuperados automaticamente. Reinicie o backend para ativar a inicialização; inicializadores alternativos devem chamar `TransactionRepository.initialize_sync_protection()` no contexto da aplicação.
 
-Para executar os testes, sem rede ou credenciais, use `python -B -m unittest discover -s tests -v` na pasta `backend/`. Os testes de proteção usam SQLite em memória e exigem Flask e Flask-SQLAlchemy; não acessam o banco configurado em `.env`.
+Para executar os testes, sem rede ou credenciais, use `python -B -m unittest discover -s tests -v` na pasta `backend/`. Os testes usam SQLite em memória e dependências da aplicação, sem acessar o banco configurado em `.env`. A suíte de autenticação utiliza Flask-JWT-Extended real e chaves estrangeiras habilitadas; testa cookies, CSRF, revogação, limitação de login, provisionamento administrativo, propriedade Pluggy e isolamento entre dois usuários.
 
 ### Edição e associação de transações
 

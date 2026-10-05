@@ -279,6 +279,11 @@ class TransactionService:
 
     def sync_transaction(self, tx_data, internal_account_id, user_id):
         """Cria ou atualiza o lançamento externo com valor absoluto e tipo normalizado."""
+        account = db.session.get(Account, internal_account_id)
+        if not account or account.user_id != user_id:
+            raise NotFoundError("Conta não encontrada.")
+        if tx_data.get("accountId") not in (None, internal_account_id):
+            raise ValidationError("A transação não pertence à conta sincronizada.")
         pluggy_tx_id = tx_data.get("id")
 
         if not pluggy_tx_id:
@@ -290,7 +295,9 @@ class TransactionService:
 
         # O identificador externo permite atualizar lançamentos já sincronizados.
         existing_tx = Transaction.query.filter_by(external_id=pluggy_tx_id).first()
-        if existing_tx and existing_tx.user_id != user_id:
+        if existing_tx and (
+            existing_tx.user_id != user_id or existing_tx.account_id != internal_account_id
+        ):
             return None
 
         # Datas ausentes ou inválidas mantêm a data UTC utilizada como fallback.
@@ -303,7 +310,6 @@ class TransactionService:
                 pass
 
         # A classificação depende do tipo de conta.
-        account = Account.query.get(internal_account_id)
         is_credit_card = account and account.type and account.type.upper() == "CREDIT"
 
         pluggy_type = tx_data.get("type", "DEBIT").upper()

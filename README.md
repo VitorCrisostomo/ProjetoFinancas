@@ -22,10 +22,7 @@ Instale as dependências Python:
 
 ```sh
 python -m pip install -r requirements.txt
-python -m pip install requests
 ```
-
-`requests` é usado pela Pluggy, mas ainda não está listado no arquivo de dependências da aplicação.
 
 Instale o frontend:
 
@@ -52,7 +49,7 @@ cd frontend
 npm run dev
 ```
 
-A API usa `http://localhost:5000`. O terminal do Vite informa o endereço do frontend. O código de verificação do cadastro aparece no terminal do backend; o envio de e-mail é simulado.
+A API usa `http://localhost:5000`; o frontend usa `http://localhost:5173` e encaminha `/api` para a API. O cadastro público está fechado. Contas existentes continuam válidas; novos acessos e recuperação de senha são feitos pelo administrador, conforme [a documentação de autenticação](backend/README.md#cadastro-e-autenticação).
 
 ## Verificação de código
 

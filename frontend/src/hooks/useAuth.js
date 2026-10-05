@@ -1,81 +1,89 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  fetchSession,
   login as loginRequest,
-  register as registerRequest,
-  verifyEmail as verifyEmailRequest,
+  logout as logoutRequest,
 } from '../services/authService.js';
+import { readResponse, setCsrfToken } from '../services/api.js';
 
 export default function useAuth() {
   const [user, setUser] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [sessionError, setSessionError] = useState('');
+  const channel = useRef(null);
+  const generation = useRef(0);
 
-  const login = async ({ email, password }) => { 
+  useEffect(() => {
+    let active = true;
+    // Remove credenciais antigas durante a transição para cookies.
     try {
-      const response = await loginRequest({ email, password });
-
-      if (response.ok) {
-        const data = await response.json();
-        
-        localStorage.setItem('token', data.access_token); 
-        localStorage.setItem('userName', data.user.name);
-        
-        setUser(data.user); 
-      } else {
-        const errorData = await response.json();
-        alert(`Erro: ${errorData.message || errorData.error || "Nome ou senha incorretos!"}`);
+      localStorage.removeItem('token');
+      localStorage.removeItem('userName');
+    } catch {
+      // Cookies permitem autenticar mesmo se o armazenamento local estiver bloqueado.
+    }
+    const clearSession = () => {
+      generation.current += 1;
+      setCsrfToken(null);
+      setUser(null);
+      setIsLoading(false);
+    };
+    window.addEventListener('auth:expired', clearSession);
+    const restoreSession = async () => {
+      const requestGeneration = ++generation.current;
+      try {
+        const response = await fetchSession();
+        if (response.status === 401) return;
+        const data = await readResponse(response);
+        if (active && requestGeneration === generation.current) {
+          setCsrfToken(data.csrf_token);
+          setUser(data.user);
+        }
+      } catch {
+        if (active && requestGeneration === generation.current) {
+          setSessionError('Não foi possível verificar sua sessão. Tente entrar novamente.');
+        }
+      } finally {
+        if (active && requestGeneration === generation.current) setIsLoading(false);
       }
+    };
+    if (typeof BroadcastChannel !== 'undefined') {
+      channel.current = new BroadcastChannel('financehub-session');
+      channel.current.onmessage = () => {
+        clearSession();
+        setIsLoading(true);
+        restoreSession();
+      };
+    }
+    restoreSession();
+    return () => {
+      active = false;
+      window.removeEventListener('auth:expired', clearSession);
+      channel.current?.close();
+      channel.current = null;
+    };
+  }, []);
+
+  const login = async (credentials) => {
+    const data = await readResponse(await loginRequest(credentials));
+    generation.current += 1;
+    setCsrfToken(data.csrf_token);
+    setSessionError('');
+    setUser(data.user);
+    channel.current?.postMessage('changed');
+  };
+
+  const logout = async () => {
+    try {
+      await readResponse(await logoutRequest());
+      generation.current += 1;
+      setCsrfToken(null);
+      setUser(null);
+      channel.current?.postMessage('changed');
     } catch (error) {
-      console.error("Erro ao fazer login:", error);
-      alert("Não foi possível conectar ao servidor.");
+      alert(error.message || 'Não foi possível encerrar a sessão. Tente novamente.');
     }
   };
 
-  const register = async ({ name, email, password }) => {
-    try {
-      const response = await registerRequest({ name, email, password });
-
-      if (response.ok) {
-        return true; 
-      } else {
-        const errorData = await response.json();
-        alert(`Erro: ${errorData.message}`);
-        return false;
-      }
-    } catch (error) {
-      console.error("Erro ao criar conta:", error);
-      return false;
-    }
-  };
-
-  const verifyEmail = async ({ email, code }) => {
-    try {
-      const response = await verifyEmailRequest({ email, code });
-
-      if (response.ok) {
-        alert('E-mail verificado com sucesso! Agora você pode fazer login.');
-        return true; // Retorna true para a tela saber que deu certo
-      } else {
-        const errorData = await response.json();
-        alert(`Erro: ${errorData.message}`);
-        return false;
-      }
-    } catch (error) {
-      console.error("Erro ao verificar conta:", error);
-      return false;
-    }
-  };
-
-  const logout = () => {
-    localStorage.removeItem('token');
-    localStorage.removeItem('userName');
-    setUser(null);
-  };
-
-  return {
-    user,
-    isAuthenticated: user !== null,
-    login,
-    register,
-    verifyEmail,
-    logout,
-  };
+  return { user, isLoading, sessionError, isAuthenticated: user !== null, login, logout };
 }
