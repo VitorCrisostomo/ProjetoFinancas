@@ -1,5 +1,11 @@
 # Banco SQLite local
 backend/instance/*.db
+backend/instance/*.db-*
+backend/.secrets/
+backend/backups/
+*.fhbackup
 backend/.env
+backend/.env.lock
+backend/.env.*.tmp
 __pycache__/
 .ruff_cache/

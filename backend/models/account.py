@@ -1,54 +1,53 @@
-"""Define os dados persistidos das contas integradas à Pluggy."""
+"""Contas com saldos, dados bancários e dados pessoais criptografados."""
 
 from config import db
+from models.encrypted_record import EncryptedRecord, encrypted_field, register_encryption_events
 
 
-class Account(db.Model):
-    """Conta bancária ou cartão identificado pelo UUID externo."""
-
+class Account(EncryptedRecord, db.Model):
     __tablename__ = "accounts"
 
-    # Identificador único (UUID) fornecido pela API externa
     id = db.Column(db.String(36), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False, index=True)
+    itemId = db.Column(db.String(36), nullable=False)
 
-    # Relação com o seu usuário interno do FinanceHub
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    _binding_fields = ("id", "user_id", "itemId")
+    _number_fields = ("balance",)
+    _json_fields = ("bankData", "creditData")
+    _required_fields = ("type", "subtype", "number", "name", "balance", "currencyCode")
+    _defaults = {
+        "type": None,
+        "subtype": None,
+        "number": None,
+        "name": None,
+        "marketingName": None,
+        "owner": None,
+        "taxNumber": None,
+        "balance": 0.0,
+        "currencyCode": "BRL",
+        "bankData": None,
+        "creditData": None,
+    }
 
-    # Campos principais e de classificação
-    type = db.Column(db.String(50), nullable=False)  # Ex: BANK, CREDIT
-    subtype = db.Column(db.String(50), nullable=False)  # Ex: CHECKING_ACCOUNT, CREDIT_CARD
-    itemId = db.Column(db.String(36), nullable=False)  # ID do item de conexão
-
-    # Detalhes da conta
-    number = db.Column(db.String(50), nullable=False)  # Conta ou últimos 4 dígitos do cartão
-    name = db.Column(db.String(100), nullable=False)
-    marketingName = db.Column(db.String(100), nullable=True)
-    owner = db.Column(db.String(100), nullable=True)
-    taxNumber = db.Column(db.String(30), nullable=True)  # CPF/CNPJ
-
-    # Valores financeiros
-    balance = db.Column(db.Float, nullable=False, default=0.0)
-    currencyCode = db.Column(db.String(10), nullable=False, default="BRL")
-
-    # Campos JSON para armazenar dados dinâmicos dependendo do tipo da conta
-    bankData = db.Column(db.JSON, nullable=True)
-    creditData = db.Column(db.JSON, nullable=True)
+    type = encrypted_field("type")
+    subtype = encrypted_field("subtype")
+    number = encrypted_field("number")
+    name = encrypted_field("name")
+    marketingName = encrypted_field("marketingName")
+    owner = encrypted_field("owner")
+    taxNumber = encrypted_field("taxNumber")
+    balance = encrypted_field("balance")
+    currencyCode = encrypted_field("currencyCode")
+    bankData = encrypted_field("bankData")
+    creditData = encrypted_field("creditData")
 
     def to_json(self):
-        """Retorna os campos utilizados nas respostas JSON da API."""
         return {
             "id": self.id,
             "user_id": self.user_id,
-            "type": self.type,
-            "subtype": self.subtype,
-            "number": self.number,
-            "name": self.name,
-            "marketingName": self.marketingName,
-            "balance": self.balance,
             "itemId": self.itemId,
-            "taxNumber": self.taxNumber,
-            "owner": self.owner,
-            "currencyCode": self.currencyCode,
-            "bankData": self.bankData,
-            "creditData": self.creditData,
+            **{name: getattr(self, name) for name in self._defaults},
         }
+
+
+register_encryption_events(Account)

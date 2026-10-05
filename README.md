@@ -10,7 +10,7 @@ Gerenciador financeiro com backend Flask, frontend React e integração bancári
 
 ## Instalação manual
 
-Use Python e Node.js com npm. Na raiz do projeto, crie um ambiente virtual:
+Use Python 3.11 ou superior e Node.js com npm. Na raiz do projeto, crie um ambiente virtual:
 
 ```sh
 python -m venv venv
@@ -31,7 +31,7 @@ cd frontend
 npm install
 ```
 
-Copie `backend/.env.example` para `backend/.env` e preencha as variáveis conforme a [documentação do backend](backend/README.md). Para mudar o endereço da API no frontend, use `frontend/.env.example` como referência para `frontend/.env`.
+Copie `backend/.env.example` para `backend/.env` e preencha as variáveis conforme a [documentação do backend](backend/README.md). Em uma instalação nova, crie a chave dos dados financeiros; ao reutilizar um banco, preserve suas chaves e siga a migração descrita em [criptografia do banco](backend/README.md#criptografia-dos-dados-financeiros). Para mudar o endereço da API no frontend, use `frontend/.env.example` como referência para `frontend/.env`.
 
 ## Executar em desenvolvimento
 

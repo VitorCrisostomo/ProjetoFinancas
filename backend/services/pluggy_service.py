@@ -1,6 +1,5 @@
 """Comunica o backend com a API da Pluggy."""
 
-import os
 import re
 from calendar import monthrange
 from datetime import date
@@ -8,20 +7,40 @@ from datetime import date
 import requests
 
 from exceptions.api_errors import APIError, ValidationError
+from services.pluggy_credentials import PluggyCredentialsStore
 
 
 class PluggyService:
     """Autenticação e consulta de dados na API externa da Pluggy."""
 
-    def __init__(self):
-        self.client_id = os.getenv("PLUGGY_CLIENT_ID")
-        self.client_secret = os.getenv("PLUGGY_CLIENT_SECRET")
+    def __init__(self, user_id=None):
+        self.user_id = user_id
+        self._credential_pair = None
+        self._api_key = None
         self.base_url = "https://api.pluggy.ai"
+
+    def _require_user(self, user_id=None):
+        if type(self.user_id) is not int or self.user_id <= 0:
+            raise APIError("A integração exige um usuário autenticado.", 403)
+        if user_id is not None and user_id != self.user_id:
+            raise APIError("Conexão bancária não autorizada.", 403)
+
+    def _credentials(self):
+        from services.auth_service import AuthService
+
+        self._require_user()
+        if self._credential_pair is None:
+            reference = AuthService.get_pluggy_reference(self.user_id)
+            self._credential_pair = PluggyCredentialsStore().get(reference)
+        return self._credential_pair
 
     def _get_api_key(self):
         """Autentica as credenciais configuradas e retorna a chave da API."""
+        if self._api_key is not None:
+            return self._api_key
         url = f"{self.base_url}/auth"
-        payload = {"clientId": self.client_id, "clientSecret": self.client_secret}
+        client_id, client_secret = self._credentials()
+        payload = {"clientId": client_id, "clientSecret": client_secret}
 
         try:
             response = requests.post(url, json=payload, timeout=30)
@@ -31,12 +50,21 @@ class PluggyService:
         if response.status_code != 200:
             raise APIError("Falha ao autenticar com a API da Pluggy.", status_code=500)
 
-        return response.json().get("apiKey")
+        try:
+            api_key = response.json().get("apiKey")
+        except (ValueError, AttributeError) as error:
+            raise APIError("Resposta bancária inválida.", 502) from error
+        if not isinstance(api_key, str) or not api_key:
+            raise APIError("Resposta bancária inválida.", 502)
+        # Instância criada por requisição: o token nunca é compartilhado entre usuários.
+        self._api_key = api_key
+        return api_key
 
     def get_connect_token(self, user_id):
         """Vincula o token à identidade bancária estável do usuário autenticado."""
         from services.auth_service import AuthService
 
+        self._require_user(user_id)
         reference = AuthService.get_pluggy_reference(user_id)
         api_key = self._get_api_key()
         url = f"{self.base_url}/connect_token"
@@ -86,6 +114,7 @@ class PluggyService:
         from models.account import Account
         from models.auth_session import UserSecurity
 
+        self._require_user(user_id)
         self.validate_item_id(item_id)
         existing = Account.query.filter_by(itemId=item_id).all()
         if any(account.user_id != user_id for account in existing):

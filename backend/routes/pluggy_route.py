@@ -10,7 +10,6 @@ from services.pluggy_service import PluggyService
 from services.transaction_service import TransactionService
 
 pluggy_routes = Blueprint("pluggy", __name__)
-pluggy_service = PluggyService()
 account_service = AccountService()
 transaction_service = TransactionService()
 
@@ -25,7 +24,8 @@ def handle_api_error(error):
 @jwt_required()
 def generate_connect_token():
     """Retorna o token necessário para abrir o widget bancário."""
-    token = pluggy_service.get_connect_token(int(get_jwt_identity()))
+    current_user_id = int(get_jwt_identity())
+    token = PluggyService(current_user_id).get_connect_token(current_user_id)
     return jsonify({"connectToken": token}), 200
 
 
@@ -38,6 +38,7 @@ def sync_pluggy_accounts():
         raise APIError("Informe o itemId da conexão.", 400)
     item_id = data.get("itemId")
     current_user_id = int(get_jwt_identity())
+    pluggy_service = PluggyService(current_user_id)
 
     synced_accounts = pluggy_service.sync_item_accounts(
         item_id=item_id, user_id=current_user_id, account_service=account_service
@@ -53,6 +54,7 @@ def sync_pluggy_accounts():
 def sync_pluggy_transactions():
     """Consulta e persiste as transações das contas do usuário autenticado."""
     current_user_id = int(get_jwt_identity())
+    pluggy_service = PluggyService(current_user_id)
     options = request.get_json() if request.is_json else None
     date_from, date_to = pluggy_service.get_sync_date_range(options)
 

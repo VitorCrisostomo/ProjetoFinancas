@@ -6,23 +6,81 @@ Data: 05/10/2026. Cenário informado: uso pelo proprietário e sua família, em 
 
 Após a análise inicial abaixo, foram corrigidas as operações de usuários, a gravação de senha na atualização e a validação de propriedade das conexões Pluggy. Sessões passaram a usar cookies HttpOnly com CSRF, revogação persistente e prazo de oito horas; o cadastro público foi fechado e o administrador passou a criar/recuperar acessos pelo terminal. Foram acrescentados testes com JWT real e dois usuários isolados, usando banco em memória. A implementação e os comandos estão no [README do backend](backend/README.md#cadastro-e-autenticação).
 
-As constatações seguintes registram o estado anterior a essa correção. As recomendações de implantação, VPN, HTTPS, backups, disponibilidade e MFA continuam pendentes. A alteração foi validada em ambiente isolado, sem executar migrações ou sincronização no banco financeiro real; a configuração do home server ainda não foi testada.
+As constatações da análise inicial, identificadas abaixo como históricas, registram o estado anterior a essa correção. As recomendações de implantação, VPN, HTTPS, backups recorrentes, disponibilidade e MFA continuam pendentes. A etapa de autenticação foi validada em ambiente isolado, sem executar então migrações ou sincronização no banco financeiro real; a configuração do home server ainda não foi testada. A afirmação anterior de que nenhuma coluna existente foi alterada pertence à etapa de autenticação, não à migração financeira descrita a seguir.
+
+## Atualização da segunda etapa — criptografia financeira
+
+Foi implementada criptografia em repouso na aplicação para contas e transações, com AES-256-GCM da biblioteca `cryptography`. Cada escrita usa nonce aleatório de 12 bytes e chave de 32 bytes; o envelope guarda a versão e o identificador da chave. A autenticação vincula o conteúdo à tabela, ao ID e contexto do registro e aos metadados de proprietário/conta/identificador externo. Isso rejeita a troca manual de payload e contexto entre registros com IDs diferentes. A aplicação decifra os campos ao atender o usuário autorizado; seus contratos HTTP e regras de isolamento são preservados. A propriedade de confidencialidade/integridade e a autenticação dos dados associados são descritas na [documentação AEAD da cryptography](https://cryptography.io/en/latest/hazmat/primitives/aead/).
+
+O payload criptografado das transações contém valor, data, nome, categoria, subcategoria, descrição e tipo. Nas contas, contém tipo/subtipo, número, nome, nome comercial, titular, CPF/CNPJ, saldo, moeda e dados bancários/de crédito. As colunas antigas desses campos são substituídas por `encrypted_data`; `subcategory` permanece no contrato e no conteúdo criptografado, sem coluna física própria. O catálogo de categorias/subcategorias continua em tabelas próprias, em claro.
+
+Permanecem visíveis no SQLite IDs de registros, `user_id`, `account_id`, `external_id` (identificador externo), `itemId`, contexto de criptografia e identificador da chave; usuários, catálogo, sessões e proteções de sincronização também ficam fora da criptografia financeira. Senhas permanecem protegidas por hash. Quantidade de registros, relações e tamanho aproximado dos payloads podem ser observados. A proteção visa a cópia do banco sem a chave: quem administra o servidor e possui a chave, ou controla o processo do backend, pode decifrar o conteúdo. Não é criptografia de ponta a ponta.
+
+A chave financeira é independente do segredo JWT e das senhas. Fica em arquivo privado fora do banco e do Git, indicado por `DATA_ENCRYPTION_KEY_FILE`; em produção, deve ficar fora do checkout e de pastas publicadas. O gerador restringe permissões com `0600` em POSIX e ACLs no Windows para a identidade executora e o sistema. O administrador deve conferir também o diretório e o acesso da conta do serviço. Uma cópia segura das chaves deve ficar separada dos backups financeiros; perder a chave torna o conteúdo irrecuperável, e gerar uma nova não recupera o histórico. Esses cuidados seguem a orientação da [OWASP sobre armazenamento e separação de chaves](https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html#key-storage).
+
+### Aplicação local verificada — 2026-10-05
+
+A migração foi aplicada com sucesso ao banco configurado `backend/instance/mydatabase.db`. A conferência anterior encontrou **0 contas e 0 transações**, de modo que foi preparado o esquema financeiro sem registros existentes para converter. `verify-encrypted-data` confirmou 0 contas e 0 transações, e `init-db` terminou com sucesso.
+
+Foi gerado o arquivo `backend/.secrets/financial-data-keys.json`, com ACL sem herança e duas regras de acesso: identidade executora e `SYSTEM`. Um backup pré-migração criptografado foi preservado em `backend/backups/`. Sua recuperação para um arquivo temporário com esquema financeiro criptografado foi conferida por igualdade de fingerprints e contagens e por `integrity_check`; o arquivo temporário foi removido depois da validação. Separadamente, 107 testes do backend passaram com dados fictícios, e lint e formatação do Ruff passaram em 35 arquivos. Esses testes não representam a conversão de registros bancários reais; a recuperação local conferida tinha 0 contas e 0 transações.
+
+O resultado se limita ao banco configurado e vazio nessa data. Não atesta dados em outras cópias de banco/backups, proteção do disco/BitLocker, cópia externa segura das chaves ou a implantação de produção. Esses pontos continuam exigindo preparação e verificação operacional.
+
+### Procedimento para instalação e bancos antigos
+
+A versão nova recusa iniciar sobre um esquema financeiro antigo e retorna 503 às requisições enquanto a preparação necessária não tiver sido concluída. A inicialização atual é explícita por `init-db`; a migração financeira deve ser executada offline, com API e demais escritores parados. O procedimento abaixo permanece como referência para outra instalação ou banco antigo; a chave local já gerada deve ser preservada.
+
+Use Python 3.11 ou superior, com suporte à serialização/deserialização SQLite, e instale `requirements.txt` a partir da raiz do repositório. Na pasta `backend/`, gere a chave apenas para um arquivo novo:
+
+```sh
+python -m services.data_encryption generate-key --file .secrets/financial-data-keys.json
+```
+
+O comando é independente da configuração Flask, não exibe a chave e não sobrescreve o arquivo. Preserve e teste uma cópia protegida antes da migração. Com `DATABASE_URI` configurado e a aplicação parada, execute na mesma pasta:
+
+```sh
+python -m flask --app main encrypt-data
+python -m flask --app main verify-encrypted-data
+python -m flask --app main init-db
+```
+
+A migração automática atende SQLite em arquivo de até 512 MiB e estruturas antigas suportadas. Antes da conversão, cria um snapshot consistente em memória, criptografa o banco inteiro e grava um backup novo `backups/before-encryption-<identificador>.fhbackup`; não escreve backup pré-migração em claro. Preserva IDs, conteúdo histórico e tabelas de usuários, catálogo e proteção, verificando contagens e conteúdo antes de confirmar. Estruturas, índices/gatilhos personalizados ou views financeiras dependentes exigem revisão. `verify-encrypted-data` valida o esquema e todos os registros financeiros, sem imprimir seu conteúdo.
+
+Para recuperação, com as chaves originais e um destino novo:
+
+```sh
+python -m flask --app main restore-encrypted-backup --backup backups/before-encryption-<identificador>.fhbackup --output instance/financehub-restored.db
+```
+
+Substitua `<identificador>` pelo nome real. A restauração decifra o snapshot somente em memória, converte as tabelas financeiras e grava um SQLite novo com seus payloads já criptografados. Metadados e tabelas não financeiras continuam visíveis. O comando não sobrescreve o destino, a chave nem o banco configurado. Teste em ambiente separado; para adotar o arquivo, configure sua URI e execute verificação e inicialização antes de reiniciar. O [README do backend](backend/README.md#criptografia-dos-dados-financeiros) detalha o procedimento e o tratamento de falhas.
+
+A conversão usa checkpoint do WAL, `secure_delete` e `VACUUM` para reduzir resíduos de dados antigos no arquivo SQLite. A [documentação de secure_delete](https://www.sqlite.org/pragma.html#pragma_secure_delete) e de [VACUUM](https://www.sqlite.org/lang_vacuum.html) explica essas operações; elas não garantem eliminar cópias históricas em snapshots, backups, caches ou blocos físicos de SSD. Dados e backups anteriores em claro precisam de revisão de retenção/descarte. BitLocker/LUKS, ACLs do banco, backup externo protegido e HTTPS/TLS continuam necessários; a criptografia da aplicação não cobre toda a máquina nem o tráfego.
 
 ## Conclusão
 
-A recomendação para esse cenário é um servidor doméstico dedicado, com acesso exclusivo por uma VPN privada, preferencialmente Tailscale pela facilidade operacional, e HTTPS. Antes de liberar o acesso à família, corrigir as rotas de usuários, fortalecer as sessões e verificar o vínculo das conexões Pluggy com seus proprietários.
+A recomendação para esse cenário continua sendo um servidor doméstico dedicado, com acesso exclusivo por uma VPN privada, preferencialmente Tailscale pela facilidade operacional, e HTTPS. As correções de autenticação e vínculo Pluggy foram implementadas, e o esquema financeiro do banco local vazio foi migrado e verificado. Antes de liberar o acesso à família, validar a configuração de produção, os acessos e a recuperação no servidor real, incluindo qualquer outra cópia de dados que seja adotada.
 
 O acesso privado pode ser mantido se futuramente a aplicação for movida para uma VPS. Hospedar em casa controla a localização do banco, mas transfere para o administrador as responsabilidades de atualização, recuperação, energia e disponibilidade. A VPN reduz a exposição de rede; não corrige autorização defeituosa na API.
 
-O isolamento proposto protege familiares uns dos outros no uso da aplicação. Não impede o administrador do servidor, alguém com acesso ao sistema operacional ou quem possui a chave dos backups de ler o banco. Privacidade contra o próprio administrador exigiria outro modelo de confiança, instâncias independentes ou criptografia com chaves que ele não controla. Isso também precisaria ser compatível com a integração bancária que processa os dados no servidor.
+O isolamento protege familiares uns dos outros no uso da aplicação. A criptografia financeira protege o conteúdo de uma cópia do banco sem a chave, mas não impede o administrador do servidor ou um processo com acesso às chaves de decifrá-lo. Privacidade contra o próprio administrador exigiria outro modelo de confiança, instâncias independentes ou criptografia com chaves que ele não controla. Isso também precisaria ser compatível com a integração bancária que processa os dados no servidor.
+
+## Atualização da terceira etapa — credenciais Pluggy individuais
+
+Cada usuário passa a utilizar o Client ID/Client Secret da sua própria aplicação Pluggy. O administrador informa o par ao criar o acesso, pode substituí-lo em `reset-password` e pode usar `configure-pluggy` sem alterar a senha. Os valores são digitados com entrada oculta e ficam somente no `.env` do backend, conforme o armazenamento solicitado; não são acrescentados ao banco nem às respostas do frontend. Os comandos e os cuidados operacionais estão no [README do backend](backend/README.md#credenciais-pluggy-por-usuário).
+
+Os nomes das variáveis usam a referência UUID permanente de `user_security`, evitando herança de chaves quando um ID numérico é reutilizado. Cada requisição cria seu cliente com a identidade autenticada, lê exclusivamente seu par e reutiliza a chave temporária da API somente dentro daquela requisição. Novas requisições reconhecem alterações no `.env` sem reiniciar o serviço. Credenciais globais não são fallback: acessos antigos precisam de configuração explícita. O vínculo dos itens via `clientUserId` continua sendo verificado.
+
+A atualização preserva as demais configurações do `.env`, utiliza bloqueio entre comandos/leitores, gravação privada e substituição atômica do arquivo, com restauração do conteúdo anterior se a confirmação no banco falhar. Uma interrupção abrupta entre os dois recursos ainda exige conferência administrativa. O `.env` permanece em claro para o administrador de confiança; sua proteção por permissões, recuperação segura e exclusão de pastas públicas continua necessária. Alterar o Client ID para outra aplicação não transfere itens bancários; será necessário conectar novamente as contas. Não foram inseridas credenciais reais nem feitas consultas bancárias durante esta implementação.
+
+Nesta etapa, 127 testes do backend passaram com dados e arquivos `.env` fictícios, incluindo isolamento do par por usuário, atualização sem reinício, preservação de outras configurações, alterações simultâneas e rollback de senha/arquivo após falha. Lint e formatação do Ruff passaram em 37 arquivos; os três comandos administrativos foram conferidos sem criar acessos reais. A aceitação das chaves reais será verificada pelo provedor quando o administrador as cadastrar e o usuário solicitar uma operação bancária.
 
 ## Escopo e limites
 
-Foram revisados frontend React/Vite, hooks e serviços, rotas Flask, serviços e repositórios, modelos, configuração, dependências declaradas, testes e documentação. As verificações executadas usaram o frontend local e o backend com banco SQLite em memória e respostas bancárias simuladas.
+Foram revisados frontend React/Vite, hooks e serviços, rotas Flask, serviços e repositórios, modelos, configuração, dependências declaradas, testes e documentação. As verificações da análise inicial usaram o frontend local e o backend com banco SQLite em memória e respostas bancárias simuladas. A etapa posterior de criptografia incluiu a migração e a recuperação verificadas do banco local configurado, vazio de contas e transações, conforme o registro de 2026-10-05 acima.
 
 Não foram consultadas contas bancárias reais, modificados dados financeiros, publicados serviços, alteradas regras do roteador ou lidos os valores de credenciais do arquivo `.env`. A análise não inspeciona o home server, a rede doméstica, o provedor de internet nem a configuração do painel Pluggy. É uma revisão do projeto e de sua preparação operacional, não uma certificação de segurança ou um teste de invasão de uma implantação real.
 
-## O que já funciona como base
+## Bases registradas na análise inicial
 
 - O frontend separa páginas, componentes, hooks, serviços HTTP e utilitários. Não é necessário reescrevê-lo ou criar aplicações nativas para acessar pelo navegador em celulares e computadores.
 - O backend organiza rotas, serviços, repositórios e modelos. A preparação para produção pode preservar essas camadas.
@@ -32,7 +90,9 @@ Não foram consultadas contas bancárias reais, modificados dados financeiros, p
 - Os modelos não serializam hash de senha ou código de verificação. O `.env` do backend e o banco SQLite estão ignorados pelo Git; os arquivos de exemplo estão versionados.
 - Há regras de adaptação de layout a telas pequenas. Isso ainda precisa de teste real nos celulares da família, especialmente tabelas e conexão bancária.
 
-## Problemas e prioridades
+## Problemas e prioridades da análise inicial — registro histórico
+
+As seções 1 a 8 a seguir preservam as observações originais. Autenticação, autorização Pluggy, cookies/CSRF e criptografia financeira tiveram as correções descritas nas atualizações acima; os trechos históricos não são uma descrição do código atual.
 
 ### 1. Bloqueador: operações de usuários sem autenticação
 
@@ -110,7 +170,7 @@ Correção: publicar frontend e API sob a mesma origem HTTPS. O proxy deve entre
 | VPS + Tailscale | Acesso privado sem depender de energia/internet da casa | Custo recorrente, dados hospedados por terceiro e manutenção do sistema continuam | Melhor alternativa se disponibilidade for mais importante que manter o banco em casa |
 | Home server + WireGuard administrado diretamente | Maior autonomia sobre a VPN | Chaves, endpoint acessível, NAT/CGNAT e recuperação ficam a seu cargo | Bom se o administrador conhece redes e quer evitar o serviço de coordenação do Tailscale |
 | Cloudflare Tunnel + Access | Acesso por navegador pode dispensar cliente VPN, com política de identidade | Outra fronteira de confiança; proteção de origem e de dispositivo precisam ser configuradas; não corrige a aplicação | Alternativa se houver uma necessidade real de acesso sem cliente VPN |
-| Site/API públicos protegidos apenas pelo login atual | Acesso fácil | Código atual tem bloqueadores; exposição de rede muito maior | Não recomendado |
+| Site/API públicos protegidos apenas pelo login | Acesso fácil | Exposição de rede maior e preparação de produção ainda não validada | Não recomendado para a implantação familiar inicial |
 
 Hospedagem gerenciada pode reduzir tarefas do sistema operacional, mas exige avaliar armazenamento persistente, integração Pluggy, sessões, backups e isolamento. Dividir frontend e backend entre vários provedores agora acrescentaria origens e configuração sem resolver os principais riscos.
 
@@ -152,7 +212,7 @@ SQLite é uma escolha razoável inicialmente para poucas pessoas em um servidor,
 
 Configurar concorrência e ocupação de escrita com cuidado; sincronizações simultâneas são o principal candidato a contenção. PostgreSQL passa a fazer sentido se houver escritas concorrentes frequentes, processos separados de sincronização, múltiplas instâncias da API ou requisitos operacionais maiores. Não implementa isolamento por usuário automaticamente; as políticas da aplicação ainda são essenciais.
 
-Backup recomendado: execução diária e antes de implantação/migração; retenção definida; cópia externa criptografada com credenciais diferentes. Usar o mecanismo de backup consistente do SQLite ou interromper escritas, em vez de copiar arbitrariamente um banco ativo. Preservar também proteções de sincronização e catálogo de categorias. Restaurar em ambiente separado periodicamente. Espelhamento de discos e snapshot na mesma máquina não cobrem roubo, exclusão ou comprometimento completo.
+Backup recomendado: execução diária e antes de implantação/migração; retenção definida; cópia externa criptografada com credenciais diferentes. O backup pré-migração implementado é criptografado, mas não constitui um agendamento diário nem uma política de retenção. Usar o mecanismo de backup consistente do SQLite ou interromper escritas, em vez de copiar arbitrariamente um banco ativo. Preservar também proteções de sincronização e catálogo de categorias, além de cópias seguras e separadas das chaves financeiras. Restaurar em ambiente separado periodicamente. Espelhamento de discos e snapshot na mesma máquina não cobrem roubo, exclusão ou comprometimento completo.
 
 O home server precisa permanecer ligado, com reinício automático dos serviços, monitoramento de espaço/disco e alertas úteis. UPS/nobreak ajuda quando disponibilidade importa, mas não substitui backup. Criptografia que exige desbloqueio manual precisa de uma estratégia de reinício compatível com o uso remoto. Se indisponibilidade doméstica for inaceitável, preferir a VPS privada desde o início.
 
@@ -166,9 +226,9 @@ Se houver webhooks no futuro, projetar um receptor pequeno e separado, com valid
 
 ## Plano de execução e critérios de aceite
 
-**Etapa 1 — corrigir acesso e contas.** Remover/proteger as rotas de usuários; corrigir hashing; restringir cadastro; criar testes com JWT real para autenticação, expiração, propriedade e operações sensíveis; garantir vínculo Pluggy. Nenhuma credencial da família deve depender de uma rota aberta.
+**Etapa 1 — corrigir acesso e contas.** Implementada no código, conforme atualização de autenticação. Confirmar no servidor real que usuários, sessões e vínculos Pluggy seguem as regras de isolamento antes de liberar contas familiares.
 
-**Etapa 2 — preparar produção.** Definir segredo JWT forte, sessões, HTTPS/origem única, build do frontend, WSGI sem debug, inicialização/migrações explícitas, dependências completas, volumes e backup. Subir primeiro usando dados fictícios.
+**Etapa 2 — preparar produção e persistência.** Criptografia financeira implementada e esquema do banco local vazio migrado e verificado em 2026-10-05, com recuperação do backup testada. Preservar as chaves e preparar cópias externas seguras; definir segredo JWT forte, HTTPS/origem única, build do frontend, WSGI sem debug, inicialização explícita, dependências completas, volumes protegidos e backup recorrente. Subir primeiro usando dados fictícios e repetir a verificação de recuperação na instalação de produção.
 
 **Etapa 3 — liberar VPN.** Configurar identidades individuais, MFA, aprovação de dispositivos e acesso mínimo. Validar que um aparelho fora da rede privada não alcança o serviço; um usuário comum não alcança administração nem finanças de outro.
 
@@ -176,7 +236,9 @@ Se houver webhooks no futuro, projetar um receptor pequeno e separado, com valid
 
 **Etapa 5 — operação contínua.** Atualizações planejadas, avisos de falha, revisão de dispositivos e privilégios, auditoria mínima de login/conexão/edição/associação sem registrar payload financeiro completo. Quando houver necessidade comprovada, adotar jobs e PostgreSQL.
 
-## Verificações executadas
+## Verificações registradas na análise inicial
+
+Os resultados abaixo pertencem à revisão original. Os resultados posteriores da migração local, da recuperação do backup e da suíte atual do backend estão registrados na seção de 2026-10-05; não devem ser confundidos com as contagens e limitações históricas abaixo. A edição documental usa esses resultados e a inspeção do código, sem expor credenciais, chaves ou conteúdo financeiro.
 
 - 52 testes do backend passaram com SQLite em memória e integração externa simulada.
 - 25 testes do frontend passaram; lint e build de produção concluíram.
@@ -200,6 +262,10 @@ Se houver webhooks no futuro, projetar um receptor pequeno e separado, com valid
 - [Cloudflare: aplicação com Tunnel e Access](https://developers.cloudflare.com/cloudflare-one/access-controls/applications/http-apps/self-hosted-public-app/).
 - [SQLite: usos adequados e limites de concorrência](https://www.sqlite.org/whentouse.html).
 - [SQLite: backup online consistente](https://www.sqlite.org/backup.html).
+- [OWASP: armazenamento criptográfico e gestão de chaves](https://cheatsheetseries.owasp.org/cheatsheets/Cryptographic_Storage_Cheat_Sheet.html).
+- [cryptography: criptografia autenticada AEAD](https://cryptography.io/en/latest/hazmat/primitives/aead/).
+- [SQLite: secure_delete](https://www.sqlite.org/pragma.html#pragma_secure_delete).
+- [SQLite: VACUUM](https://www.sqlite.org/lang_vacuum.html).
 - [Pluggy: autenticação, escopo e clientUserId](https://v2.docs.pluggy.ai/en/reference/authentication).
 
-Valores, limites de planos e comportamento de serviços podem mudar. As recomendações de infraestrutura são inferências para o cenário familiar informado; as falhas de código descritas são observações sobre a revisão atual do repositório.
+Valores, limites de planos e comportamento de serviços podem mudar. As recomendações de infraestrutura são inferências para o cenário familiar informado; as falhas de código preservadas no registro histórico são observações da análise inicial. As atualizações no início deste documento descrevem as etapas posteriores de autenticação e criptografia e a migração verificada do esquema do banco local vazio, sem atestar a implantação de produção ou outras cópias de dados.

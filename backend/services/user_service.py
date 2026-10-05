@@ -56,7 +56,7 @@ class UserService:
             raise APIError("E-mail ou senha incorretos.", 401)
         return user
 
-    def create_user(self, data):
+    def create_user(self, data, commit=True):
         """Usado somente pelo comando local do administrador, sem rota pública."""
         if not isinstance(data, dict):
             raise ValidationError("Informe os dados do usuário.")
@@ -72,7 +72,8 @@ class UserService:
                 password=generate_password_hash(password),
                 is_verified=True,
                 verification_code=None,
-            )
+            ),
+            commit=commit,
         )
 
     def get_own_user(self, user_id, current_user_id):

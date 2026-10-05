@@ -2,6 +2,7 @@
 
 import os
 from datetime import timedelta
+from pathlib import Path
 
 from dotenv import load_dotenv
 from flask import Flask, jsonify
@@ -10,6 +11,7 @@ from flask_jwt_extended import JWTManager
 from flask_sqlalchemy import SQLAlchemy
 
 from exceptions.api_errors import APIError
+from services.data_encryption import DataCipher
 
 load_dotenv()
 
@@ -20,6 +22,14 @@ if not app.config["JWT_SECRET_KEY"] or len(app.config["JWT_SECRET_KEY"]) < 32:
     raise RuntimeError("Configure JWT_SECRET_KEY com pelo menos 32 caracteres aleatórios.")
 app.config["SQLALCHEMY_DATABASE_URI"] = os.getenv("DATABASE_URI")
 app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"hide_parameters": True}
+app.config["PLUGGY_ENV_FILE"] = str(Path(__file__).resolve().parent / ".env")
+app.config["DATA_ENCRYPTION_KEY_FILE"] = os.getenv("DATA_ENCRYPTION_KEY_FILE") or str(
+    Path(__file__).resolve().parent / ".secrets" / "financial-data-keys.json"
+)
+app.extensions["financial_data_cipher"] = DataCipher.from_key_file(
+    app.config["DATA_ENCRYPTION_KEY_FILE"]
+)
 cookie_secure = os.getenv("AUTH_COOKIE_SECURE", "true").lower()
 if cookie_secure not in {"true", "false"}:
     raise RuntimeError("AUTH_COOKIE_SECURE deve ser true ou false.")

@@ -15,9 +15,12 @@ class UserRepository:
     def get_by_email(self, email):
         return User.query.filter(func.lower(User.email) == email.lower()).first()
 
-    def create(self, user):
+    def create(self, user, commit=True):
         db.session.add(user)
-        db.session.commit()
+        if commit:
+            db.session.commit()
+        else:
+            db.session.flush()
         return user
 
     def update(self, user):

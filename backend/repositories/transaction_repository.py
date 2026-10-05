@@ -17,6 +17,10 @@ class TransactionRepository:
             inspector = inspect(connection)
             if not inspector.has_table(Transaction.__tablename__):
                 return
+            if "encrypted_data" in {
+                column["name"] for column in inspector.get_columns("transactions")
+            }:
+                return
             if "subcategory" not in {
                 column["name"] for column in inspector.get_columns("transactions")
             }:

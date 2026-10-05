@@ -111,9 +111,15 @@ class PluggySyncTests(unittest.TestCase):
             self.service.get_transactions_for_account("a")
 
     def test_authentication_has_timeout(self):
+        credentials = patch.object(
+            self.service, "_credentials", return_value=("test-id", "test-secret")
+        )
+        credentials.start()
+        self.addCleanup(credentials.stop)
         requests_stub.post.return_value = response({"apiKey": "key"})
         self.assertEqual(PluggyService._get_api_key(self.service), "key")
         self.assertEqual(requests_stub.post.call_args.kwargs["timeout"], 30)
+        self.service._api_key = None
         requests_stub.post.side_effect = RequestFailure("timeout")
         with self.assertRaises(APIError):
             PluggyService._get_api_key(self.service)

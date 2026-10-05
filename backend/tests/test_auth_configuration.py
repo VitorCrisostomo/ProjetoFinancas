@@ -4,14 +4,22 @@ import importlib.util
 import os
 import unittest
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
+
+from services.data_encryption import generate_key_file
 
 
 class AuthConfigurationTests(unittest.TestCase):
     def load_config(self, overrides=None):
+        temporary = TemporaryDirectory()
+        self.addCleanup(temporary.cleanup)
+        key_path = Path(temporary.name) / "keys.json"
+        generate_key_file(key_path)
         environment = {
             "JWT_SECRET_KEY": "configuration-test-secret-at-least-32-characters",
             "DATABASE_URI": "sqlite:///:memory:",
+            "DATA_ENCRYPTION_KEY_FILE": str(key_path),
             **(overrides or {}),
         }
         path = Path(__file__).resolve().parents[1] / "config.py"

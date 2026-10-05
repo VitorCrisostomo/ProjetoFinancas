@@ -4,6 +4,8 @@ import sys
 import time
 import unittest
 from datetime import datetime, timedelta
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from types import ModuleType
 from unittest.mock import Mock, patch
 
@@ -11,6 +13,8 @@ from flask import Flask
 from flask_jwt_extended import JWTManager, create_access_token, decode_token
 from flask_sqlalchemy import SQLAlchemy
 from werkzeug.security import check_password_hash, generate_password_hash
+
+from services.data_encryption import DataCipher
 
 test_app = Flask(__name__)
 test_app.config.update(
@@ -29,6 +33,7 @@ test_app.config.update(
     AUTH_LOGIN_ADDRESS_LIMIT=20,
 )
 test_db = SQLAlchemy(test_app)
+test_app.extensions["financial_data_cipher"] = DataCipher("test", {"test": b"z" * 32})
 test_jwt = JWTManager(test_app)
 config_stub = ModuleType("config")
 config_stub.app, config_stub.db, config_stub.jwt = test_app, test_db, test_jwt
@@ -43,7 +48,7 @@ with patch.dict(sys.modules, {"config": config_stub}):
     from models.transaction import Transaction
     from models.transaction_sync_protection import TransactionSyncProtection
     from models.user import User
-    from routes.pluggy_route import pluggy_service
+    from routes.pluggy_route import PluggyService as pluggy_service
     from services.auth_service import AuthService
     from services.transaction_service import TransactionService
     from services.user_service import UserService
@@ -67,6 +72,9 @@ class AuthenticationTests(unittest.TestCase):
         self.module_patch.start()
         self.context = test_app.app_context()
         self.context.push()
+        credential_directory = TemporaryDirectory()
+        self.addCleanup(credential_directory.cleanup)
+        test_app.config["PLUGGY_ENV_FILE"] = str(Path(credential_directory.name) / ".env")
         # O SQLite real aplica suas chaves estrangeiras nestes testes.
         with test_db.engine.connect() as connection:
             connection.exec_driver_sql("PRAGMA foreign_keys=ON")
@@ -581,9 +589,9 @@ class AuthenticationTests(unittest.TestCase):
                 "clientUserId": None,
             },
         ):
-            pluggy_service.verify_item_owner("item-1", 1)
+            pluggy_service(1).verify_item_owner("item-1", 1)
             with self.assertRaises(APIError):
-                pluggy_service.verify_item_owner("item-1", 2)
+                pluggy_service(2).verify_item_owner("item-1", 2)
 
     def test_reused_user_id_does_not_inherit_previous_bank_connections(self):
         previous_reference = AuthService.get_pluggy_reference(1)
@@ -617,7 +625,7 @@ class AuthenticationTests(unittest.TestCase):
             ),
             self.assertRaises(APIError),
         ):
-            pluggy_service.verify_item_owner("item-1", 1)
+            pluggy_service(1).verify_item_owner("item-1", 1)
 
     def test_unexpected_account_response_is_rejected_before_partial_writes(self):
         csrf = self.login()
@@ -689,7 +697,7 @@ class AuthenticationTests(unittest.TestCase):
                 "--email",
                 "family@example.com",
             ],
-            input="senha-da-familia-123\nsenha-da-familia-123\n",
+            input="senha-da-familia-123\nsenha-da-familia-123\nclient-family\nsecret-family\nsecret-family\n",
         )
         self.assertEqual(result.exit_code, 0, result.output)
         user = User.query.filter_by(email="family@example.com").first()
@@ -701,7 +709,7 @@ class AuthenticationTests(unittest.TestCase):
                 "--email",
                 "user1@example.com",
             ],
-            input="nova-senha-admin-123\nnova-senha-admin-123\n",
+            input="nova-senha-admin-123\nnova-senha-admin-123\nn\n",
         )
         self.assertEqual(result.exit_code, 0, result.output)
         self.assertEqual(self.client.get("/accounts").status_code, 401)

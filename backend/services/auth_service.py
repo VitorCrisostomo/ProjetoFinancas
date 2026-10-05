@@ -74,11 +74,14 @@ class AuthService:
         db.session.commit()
 
     @staticmethod
-    def get_pluggy_reference(user_id):
+    def get_pluggy_reference(user_id, commit=True):
         security = db.session.get(UserSecurity, user_id)
         if not security:
             security = UserSecurity(user_id=user_id)
             db.session.add(security)
+            if not commit:
+                db.session.flush()
+                return security.pluggy_reference
             try:
                 db.session.commit()
             except IntegrityError:

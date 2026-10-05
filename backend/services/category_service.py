@@ -2,7 +2,6 @@
 
 import unicodedata
 
-from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 
 from config import db
@@ -99,12 +98,15 @@ class CategoryService:
     def migrate_leisure_category(self, user_id=None):
         """Renomeia o padrão antigo, preservando filhos e proteções de sincronização."""
         legacy = Category.query.filter_by(normalized_name="entretenimento")
-        transactions = Transaction.query.filter(
-            func.lower(Transaction.category) == "entretenimento"
-        )
+        transactions = Transaction.query
         if user_id is not None:
             legacy = legacy.filter_by(user_id=user_id)
             transactions = transactions.filter_by(user_id=user_id)
+        transactions = [
+            transaction
+            for transaction in transactions.all()
+            if (transaction.category or "").casefold() == "entretenimento"
+        ]
         for category in legacy.all():
             target = self.repository.get_by_name("lazer", category.user_id)
             if target is None:
@@ -115,18 +117,20 @@ class CategoryService:
             for sub in list(category.subcategories):
                 duplicate = children.get(sub.normalized_name)
                 if duplicate:
-                    Transaction.query.filter_by(
-                        user_id=category.user_id, subcategory=sub.name
-                    ).filter(func.lower(Transaction.category) == "entretenimento").update(
-                        {Transaction.subcategory: duplicate.name}, synchronize_session="fetch"
-                    )
+                    for transaction in transactions:
+                        if (
+                            transaction.user_id == category.user_id
+                            and transaction.subcategory == sub.name
+                        ):
+                            transaction.subcategory = duplicate.name
                     db.session.delete(sub)
                 else:
                     sub.category_id = target.id
             db.session.flush()
             db.session.expire(category, ["subcategories"])
             db.session.delete(category)
-        transactions.update({Transaction.category: "Lazer"}, synchronize_session="fetch")
+        for transaction in transactions:
+            transaction.category = "Lazer"
         db.session.commit()
 
     def list_categories(self, user_id):
@@ -135,8 +139,11 @@ class CategoryService:
         existing = {
             category.normalized_name for category in self.repository.get_by_user_id(user_id)
         }
-        historical = db.session.query(Transaction.category).filter_by(user_id=user_id).distinct()
-        for name in (*DEFAULT_CATEGORIES, *(row[0] for row in historical)):
+        historical = {
+            transaction.category
+            for transaction in Transaction.query.filter_by(user_id=user_id).all()
+        }
+        for name in (*DEFAULT_CATEGORIES, *historical):
             if not name or name == "Saldo anterior":
                 continue
             normalized = name.casefold()

@@ -10,9 +10,12 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import inspect, text
 
+from services.data_encryption import DataCipher
+
 test_app = Flask(__name__)
 test_app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
 test_db = SQLAlchemy(test_app)
+test_app.extensions["financial_data_cipher"] = DataCipher("test", {"test": b"x" * 32})
 config_stub = ModuleType("config")
 config_stub.db = test_db
 jwt_stub = ModuleType("flask_jwt_extended")
@@ -868,16 +871,16 @@ class TransactionSyncProtectionTests(unittest.TestCase):
         self.service.update_transaction(edited.id, {"name": "Manual"})
         self.service.reconcile_opening_balance(test_db.session.get(Account, "account"))
         with (
-            patch.object(pluggy_route.pluggy_service, "get_item", return_value={"id": "item"}),
+            patch.object(pluggy_route.PluggyService, "get_item", return_value={"id": "item"}),
             patch.object(
-                pluggy_route.pluggy_service,
+                pluggy_route.PluggyService,
                 "get_accounts_from_item",
                 return_value=[
                     {"id": "account", "itemId": "item", "balance": 1000},
                 ],
             ) as fetch_accounts,
             patch.object(
-                pluggy_route.pluggy_service,
+                pluggy_route.PluggyService,
                 "get_transactions_for_account",
                 return_value=[
                     {"id": "edited", "amount": 999, "description": "Banco"},
