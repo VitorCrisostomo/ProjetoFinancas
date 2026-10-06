@@ -34,8 +34,15 @@ Para adicionar uma página, registre-a em `navigation.js` e forneça suas propri
 - `useCollection`: carregamento, erros e proteção contra respostas após o encerramento da sessão.
 - `useTransactionControls`: filtros, seleção, formulário e feedback das ações de transação.
 - `useAccountConnection`: abertura do widget, conexão e feedback das ações de conta.
+- `useFinancialVisibility`: preferência de ocultação dos valores financeiros na interface.
 
 Os hooks de dados retornam resultados ou lançam erros. Os controles de interface cuidam de confirmações e mensagens. O formulário de transação é montado ao abrir, inicializado com os dados da edição e descartado ao fechar.
+
+## Visibilidade dos valores
+
+`FinancialVisibilityProvider` envolve o layout e todas as páginas autenticadas. O botão de olho no cabeçalho alterna a exibição dos valores; o traço sobre o olho indica o modo oculto. A preferência é salva por ID do usuário neste navegador, em `financehub:values-hidden:<id>`, e permanece ao navegar ou recarregar. Apenas o indicador de ocultação é salvo, sem valores financeiros. Se o armazenamento estiver indisponível, a preferência funciona durante a sessão.
+
+`FinancialValue` deve envolver qualquer novo saldo, total ou valor de transação apresentado na interface. No modo oculto, substitui o conteúdo por uma máscara borrada e anuncia apenas Valor oculto aos leitores de tela. A cobertura inclui Início, Transações, Contas e os indicadores e rótulos dos gráficos de Visão geral. A confirmação nativa de associação usa valor oculto no lugar dos números. Essa preferência altera a apresentação, sem interferir nos cálculos, filtros, sincronização ou proteção dos dados no backend.
 
 ## Serviços
 

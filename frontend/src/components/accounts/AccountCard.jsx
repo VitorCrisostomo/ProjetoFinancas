@@ -1,4 +1,5 @@
 import formatCurrency from '../../utils/currency.jsx';
+import FinancialValue from '../common/FinancialValue.jsx';
 
 export default function AccountCard({ account, onDelete }) {
   return (
@@ -23,7 +24,7 @@ export default function AccountCard({ account, onDelete }) {
       <div>
         <p className="account-card-label">Saldo Atual</p>
         <p className={`account-card-balance ${account.balance >= 0 ? 'positive' : 'negative'}`}>
-          {formatCurrency(account.balance)}
+          <FinancialValue>{formatCurrency(account.balance)}</FinancialValue>
         </p>
       </div>
 

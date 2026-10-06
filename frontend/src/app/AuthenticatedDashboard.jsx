@@ -4,6 +4,7 @@ import useAccounts from '../hooks/useAccounts.js';
 import useTransactions from '../hooks/useTransactions.js';
 import useCategories from '../hooks/useCategories.js';
 import { DEFAULT_PAGE, getPage } from './navigation.js';
+import FinancialVisibilityProvider from './FinancialVisibilityProvider.jsx';
 
 // Os hooks de dados vivem somente durante a sessão autenticada.
 export default function AuthenticatedDashboard({ user, onLogout }) {
@@ -55,9 +56,11 @@ export default function AuthenticatedDashboard({ user, onLogout }) {
   const errors = [...new Set([accountData.error, transactionData.error, categoryData.error].filter(Boolean))];
 
   return (
-    <AppLayout user={user} currentPage={currentPage} onPageChange={setCurrentPage} onLogout={onLogout}>
-      {errors.map((message) => <p role="alert" key={message}>{message}</p>)}
-      {isLoading ? <p role="status">Carregando dados...</p> : <Page {...pageProps[page.id]} />}
-    </AppLayout>
+    <FinancialVisibilityProvider userId={user.id}>
+      <AppLayout user={user} currentPage={currentPage} onPageChange={setCurrentPage} onLogout={onLogout}>
+        {errors.map((message) => <p role="alert" key={message}>{message}</p>)}
+        {isLoading ? <p role="status">Carregando dados...</p> : <Page {...pageProps[page.id]} />}
+      </AppLayout>
+    </FinancialVisibilityProvider>
   );
 }

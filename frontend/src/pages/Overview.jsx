@@ -6,6 +6,7 @@ import Card from "../components/common/Card";
 import formatCurrency from "../utils/currency";
 import { categoryIcons, categoryColors } from "../utils/category";
 import { getCategoryCatalog, getExpenseBreakdown } from '../utils/categoryCatalog.js';
+import FinancialValue from '../components/common/FinancialValue.jsx';
 
 const OverviewPage = ({ transactions, categoryCatalog = [] }) => {
   const period = useTransactionPeriod(transactions);
@@ -50,10 +51,10 @@ const OverviewPage = ({ transactions, categoryCatalog = [] }) => {
         >
           {openingBalance !== null ? <>
             <p className="transactions-balance-description">
-              Saldo anterior: {formatCurrency(openingBalance)}
+              Saldo anterior: <FinancialValue>{formatCurrency(openingBalance)}</FinancialValue>
             </p>
             <p className="transactions-balance-description">
-              Movimentações do período: {formatCurrency(balance)}
+              Movimentações do período: <FinancialValue>{formatCurrency(balance)}</FinancialValue>
             </p>
             <p className="transactions-balance-description">
               Inclui todo o histórico antes do início do período selecionado.
@@ -93,7 +94,7 @@ const OverviewPage = ({ transactions, categoryCatalog = [] }) => {
                 className="chart-bar-fill income"
                 style={{ width: `${(totalIncome / (totalIncome + totalExpense + 100)) * 100}%` }}
               >
-                {formatCurrency(totalIncome)}
+                <FinancialValue>{formatCurrency(totalIncome)}</FinancialValue>
               </div>
             </div>
           </div>
@@ -104,7 +105,7 @@ const OverviewPage = ({ transactions, categoryCatalog = [] }) => {
                 className="chart-bar-fill expense"
                 style={{ width: `${(totalExpense / (totalIncome + totalExpense + 100)) * 100}%` }}
               >
-                {formatCurrency(totalExpense)}
+                <FinancialValue>{formatCurrency(totalExpense)}</FinancialValue>
               </div>
             </div>
           </div>
@@ -134,7 +135,7 @@ const OverviewPage = ({ transactions, categoryCatalog = [] }) => {
                     }}
                   />
                 </div>
-                <span className="category-value">{formatCurrency(value)}</span>
+                <span className="category-value"><FinancialValue>{formatCurrency(value)}</FinancialValue></span>
               </div>
             ))}
         </div>

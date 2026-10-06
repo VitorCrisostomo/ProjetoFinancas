@@ -5,6 +5,7 @@ import { getOpeningBalance, getTransactionSummary } from '../utils/transactionSu
 import { getAssociationData } from '../utils/transactionAssociation.js';
 import { sortTransactionsByDate } from '../utils/transactionList.js';
 import { getCategoryCatalog } from '../utils/categoryCatalog.js';
+import useFinancialVisibility from './useFinancialVisibility.js';
 
 export default function useTransactionControls({ 
   transactions, 
@@ -24,6 +25,7 @@ export default function useTransactionControls({
   const [syncModalOpen, setSyncModalOpen] = useState(false);
   const [syncError, setSyncError] = useState('');
   const period = useTransactionPeriod(transactions);
+  const { valuesHidden } = useFinancialVisibility();
 
   const categories = ['', ...new Set(transactions.map((t) => t.category).filter(Boolean))];
   const availableCategories = getCategoryCatalog(categoryCatalog, transactions);
@@ -53,10 +55,11 @@ export default function useTransactionControls({
     const selected = selectedIds.map((id) => transactions.find((transaction) => transaction.id === id));
     if (selected.some((transaction) => !transaction || transaction.is_opening_balance)) return;
     const updatedData = getAssociationData(selected);
+    const displayAmount = (value) => valuesHidden ? 'valor oculto' : formatCurrency(value);
     const details = selected.map((transaction) => (
-      `- "${transaction.name}" (${transaction.type === 'income' ? '+' : '-'}${formatCurrency(transaction.value)})`
+      `- "${transaction.name}" (${transaction.type === 'income' ? '+' : '-'}${displayAmount(transaction.value)})`
     )).join('\n');
-    const confirmMessage = `Deseja associar ${selected.length} transações:\n${details}\n\nResultado final: ${updatedData.type === 'income' ? 'Receita' : 'Despesa'} de ${formatCurrency(updatedData.value)}?\nA data e a categoria serão as da primeira transação selecionada.`;
+    const confirmMessage = `Deseja associar ${selected.length} transações:\n${details}\n\nResultado final: ${updatedData.type === 'income' ? 'Receita' : 'Despesa'} de ${displayAmount(updatedData.value)}?\nA data e a categoria serão as da primeira transação selecionada.`;
 
     if (window.confirm(confirmMessage)) {
       associating.current = true;

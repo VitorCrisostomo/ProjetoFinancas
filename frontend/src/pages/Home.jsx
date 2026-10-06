@@ -5,6 +5,7 @@ import { sortTransactionsByDate } from '../utils/transactionList.js';
 import formatCurrency from "../utils/currency";
 import Card from "../components/common/Card";
 import { categoryIcons } from "../utils/category";
+import FinancialValue from '../components/common/FinancialValue.jsx';
 
 const HomePage = ({ transactions }) => {
   const period = useTransactionPeriod(transactions);
@@ -27,10 +28,10 @@ const HomePage = ({ transactions }) => {
         <div className="highlight-card">
           <span className="highlight-label">Saldo acumulado</span>
           <span className={`highlight-value ${balance >= 0 ? 'positive' : 'negative'}`}>
-            {formatCurrency(balance)}
+            <FinancialValue>{formatCurrency(balance)}</FinancialValue>
           </span>
           {openingBalance !== null && <p className="transactions-balance-description">
-            Saldo anterior: {formatCurrency(openingBalance)} · Movimentações do período: {formatCurrency(periodBalance)}
+            Saldo anterior: <FinancialValue>{formatCurrency(openingBalance)}</FinancialValue> · Movimentações do período: <FinancialValue>{formatCurrency(periodBalance)}</FinancialValue>
           </p>}
         </div>
       </div>
@@ -73,7 +74,7 @@ const HomePage = ({ transactions }) => {
                 </div>
               </div>
               <span className={`transaction-value ${t.type}`}>
-                {t.type === 'income' ? '+' : '-'} {formatCurrency(t.value)}
+                <FinancialValue>{t.type === 'income' ? '+' : '-'} {formatCurrency(t.value)}</FinancialValue>
               </span>
             </div>
           ))}

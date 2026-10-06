@@ -1,6 +1,7 @@
 import formatCurrency from "../../utils/currency.jsx";
 import formatDate from "../../utils/date.jsx";
 import EditableCategory from "./EditableCategory.jsx";
+import FinancialValue from './FinancialValue.jsx';
 
 const TransactionRow = ({
   transaction,
@@ -59,7 +60,7 @@ const TransactionRow = ({
       </td>
 
       <td className={`col-value ${transaction.type}`}>
-        {transaction.type === 'income' ? '+' : '-'} {formatCurrency(transaction.value)}
+        <FinancialValue>{transaction.type === 'income' ? '+' : '-'} {formatCurrency(transaction.value)}</FinancialValue>
       </td>
 
       <td className="col-actions">
