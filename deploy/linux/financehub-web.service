@@ -1,0 +1,32 @@
+# Substituir APP_HOST pelo mesmo hostname de AUTH_ALLOWED_ORIGINS.
+[Unit]
+Description=FinanceHub frontend and proxy (Caddy)
+Wants=network-online.target
+After=network-online.target financehub-api.service
+
+[Service]
+Type=simple
+User=financehub-web
+Group=financehub-web
+WorkingDirectory=/opt/financehub
+Environment=APP_HOST=SUBSTITUIR_PELO_HOSTNAME.ts.net
+Environment=FRONTEND_ROOT=/var/lib/financehub/www
+Environment=XDG_DATA_HOME=/var/lib/financehub/logs/Web
+Environment=XDG_CONFIG_HOME=/var/lib/financehub/logs/Web
+ExecStart=/usr/bin/caddy run --config /opt/financehub/deploy/Caddyfile --adapter caddyfile
+Restart=on-failure
+RestartSec=15
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/financehub/logs/Web
+InaccessiblePaths=/var/lib/financehub/config /var/lib/financehub/keys /var/lib/financehub/data /var/lib/financehub/backups
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

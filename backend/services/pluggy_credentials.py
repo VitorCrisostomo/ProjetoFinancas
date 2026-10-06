@@ -115,6 +115,13 @@ class PluggyCredentialsStore:
             ) from error
 
     @contextmanager
+    def snapshot(self):
+        """Mantém configuração e banco coordenados durante o snapshot de backup."""
+        with self._locked():
+            content, _bindings = self._read()
+            yield content
+
+    @contextmanager
     def change(self, reference, client_id, client_secret):
         """Confirma junto da operação administrativa; exceções restauram o .env anterior."""
         pair = self.validate(client_id, client_secret)

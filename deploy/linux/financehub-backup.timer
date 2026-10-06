@@ -1,0 +1,11 @@
+[Unit]
+Description=FinanceHub daily encrypted backup
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+RandomizedDelaySec=5m
+Persistent=true
+Unit=financehub-backup.service
+
+[Install]
+WantedBy=timers.target

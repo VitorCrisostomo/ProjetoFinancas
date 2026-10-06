@@ -11,6 +11,7 @@ from routes.transaction_route import transaction_routes
 from routes.user_route import user_routes
 from services.admin_commands import register_admin_commands
 from services.auth_service import configure_authentication
+from services.backup_service import register_backup_commands
 from services.category_service import CategoryService
 from services.database_encryption_service import (
     ensure_encrypted_schema,
@@ -25,6 +26,7 @@ app.register_blueprint(category_routes)
 configure_authentication(app, jwt)
 register_admin_commands(app)
 register_encryption_commands(app)
+register_backup_commands(app)
 
 
 @app.before_request
@@ -48,6 +50,19 @@ def initialize_database():
         db.create_all()
         TransactionRepository.initialize_subcategory_column()
         CategoryService().migrate_leisure_category()
+
+
+@app.get("/healthz")
+def healthcheck():
+    """Sinaliza disponibilidade sem retornar dados, contagens ou credenciais."""
+    from sqlalchemy import text
+
+    try:
+        db.session.execute(text("SELECT 1"))
+    except Exception:
+        db.session.rollback()
+        return jsonify({"status": "unavailable"}), 503
+    return jsonify({"status": "ok"})
 
 
 @app.cli.command("init-db")

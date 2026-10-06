@@ -1,0 +1,29 @@
+# Template para Linux com systemd; preparar banco e permissões antes de ativar.
+[Unit]
+Description=FinanceHub API (Waitress)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+User=financehub-api
+Group=financehub-api
+WorkingDirectory=/opt/financehub/backend
+Environment=FINANCEHUB_ENV_FILE=/var/lib/financehub/config/app.env
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/financehub/.venv/bin/python -B -u /opt/financehub/backend/server.py
+Restart=on-failure
+RestartSec=15
+TimeoutStopSec=30
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/financehub/config /var/lib/financehub/data /var/lib/financehub/backups /var/lib/financehub/logs
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

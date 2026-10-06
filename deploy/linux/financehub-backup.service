@@ -1,0 +1,20 @@
+# Backup local por padrão. Para cópia externa, revisar ExecStart e ReadWritePaths.
+[Unit]
+Description=FinanceHub encrypted backup and recovery verification
+
+[Service]
+Type=oneshot
+User=financehub-api
+Group=financehub-api
+WorkingDirectory=/opt/financehub/backend
+ExecStart=/opt/financehub/.venv/bin/python -B /opt/financehub/deploy/run_backup.py --state-dir /var/lib/financehub
+TimeoutStartSec=1h
+UMask=0077
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=strict
+ReadWritePaths=/var/lib/financehub/config /var/lib/financehub/data /var/lib/financehub/backups /var/lib/financehub/logs
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+StandardOutput=journal
+StandardError=journal

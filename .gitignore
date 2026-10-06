@@ -1,9 +1,11 @@
 # Configurações e chaves locais
 .env
 .env.*
+*.env
 !.env.example
 .secrets
 .secrets/
+financial-data-keys.json
 
 # Bancos SQLite e seus arquivos auxiliares
 *.db
@@ -25,4 +27,6 @@ __pycache__/
 *.pyc
 *.pyo
 node_modules/
+.venv/
+venv/
 .ruff_cache/

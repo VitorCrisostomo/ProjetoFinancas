@@ -129,8 +129,15 @@ def restrict_secret_file(path):
         text=True,
     )
     sid = next(csv.reader([result.stdout.strip()]))[1]
+    grants = [f"*{sid}:(F)", "*S-1-5-18:(F)"]
+    service_sid = os.getenv("FINANCEHUB_FILE_ACCESS_SID")
+    if service_sid:
+        if not re.fullmatch(r"S-1-(?:\d+-)+\d+", service_sid):
+            raise ValueError("SID da conta de serviço inválido.")
+        # Administração e serviço precisam conservar acesso após uma substituição atômica.
+        grants.extend([f"*{service_sid}:(F)", "*S-1-5-32-544:(F)"])
     subprocess.run(
-        ["icacls", str(path), "/inheritance:r", "/grant:r", f"*{sid}:(F)", "*S-1-5-18:(F)"],
+        ["icacls", str(path), "/inheritance:r", "/grant:r", *dict.fromkeys(grants)],
         check=True,
         stdout=subprocess.DEVNULL,
         stderr=subprocess.DEVNULL,

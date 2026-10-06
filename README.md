@@ -64,3 +64,9 @@ python -m ruff format backend --check
 Na pasta `frontend`, execute `npm run build` e `npm run lint`.
 
 `setup.bat` e `Makefile` ainda contêm caminhos do template inicial. A instalação manual acima corresponde à organização atual; os scripts não foram alterados nesta revisão de documentação e lint.
+
+## Produção em home server
+
+O [guia de produção](deploy/README.md) prepara Windows primeiro: Waitress para a API, Caddy para o frontend e o proxy, HTTPS privado pelo Tailscale Serve, serviços na inicialização e backup diário criptografado. Banco, configuração, chaves e backups ficam fora do repositório. O guia inclui instalação nova, migração dos dados atuais, atualização, restauração e os templates para a futura migração para Linux sem Docker.
+
+Os scripts preparam a instalação; executar o projeto em desenvolvimento não registra serviços nem ativa HTTPS. A instalação no servidor exige o hostname real do Tailscale, as chaves financeiras preservadas quando houver dados e a configuração do destino externo dos backups.
