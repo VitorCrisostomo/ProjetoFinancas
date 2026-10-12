@@ -1,25 +1,15 @@
 @echo off
-echo =========================================
-echo   Instalando Dependencias do App 
-echo =========================================
-echo.
-
-echo 1. Configurando o Ambiente Python (Backend)...
-python -m venv venv
-call venv\Scripts\activate
-pip install -r requirements.txt
-echo Backend configurado com sucesso!
-echo.
-
-echo 2. Configurando o React (Frontend)...
-:: Se o frontend estiver dentro de uma pasta (ex: /frontend), descomente a linha abaixo e mude o nome
-:: cd frontend
-call npm install
-echo Frontend configurado com sucesso!
-echo.
-
-echo =========================================
-echo   Tudo pronto! 
-echo   Para rodar, inicie o backend e o frontend.
-echo =========================================
-pause
+setlocal
+cd /d "%~dp0"
+where py >nul 2>nul
+if not errorlevel 1 (
+    py -3 "%~dp0deploy\setup.py" %*
+) else (
+    where python >nul 2>nul
+    if errorlevel 1 (
+        echo Instale Python 3.11 ou superior e habilite sua inclusao no PATH.
+        exit /b 1
+    )
+    python "%~dp0deploy\setup.py" %*
+)
+exit /b %errorlevel%
