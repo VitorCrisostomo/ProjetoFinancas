@@ -1,12 +1,13 @@
 """Prepara estado externo uma única vez; nunca substitui dados ou chaves existentes."""
 
 import argparse
+import ipaddress
 import secrets
 import sqlite3
 import sys
 from contextlib import closing
 from io import StringIO
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from urllib.parse import urlsplit
 
 from dotenv.parser import parse_stream
@@ -17,14 +18,37 @@ sys.path.insert(0, str(PROJECT / "backend"))
 from services.data_encryption import generate_key_file, write_private_file  # noqa: E402
 
 
-def prepare(root, origin, fresh=False, source_env=None, source_key=None, source_database=None):
+def prepare(
+    root,
+    origin,
+    fresh=False,
+    source_env=None,
+    source_key=None,
+    source_database=None,
+    target="native",
+    docker_proxy=None,
+):
     root = Path(root).resolve()
     if root == PROJECT or PROJECT in root.parents or root in PROJECT.parents:
         raise ValueError("Mantenha o estado persistente fora do checkout da aplicação.")
+    if target not in {"native", "docker"} or (target == "native" and docker_proxy):
+        raise ValueError("Escolha native ou docker; proxy Docker só pertence ao alvo docker.")
+    proxy = "127.0.0.1"
+    if target == "docker":
+        proxy = docker_proxy or "172.30.84.3"
+        parsed_proxy = ipaddress.ip_address(proxy)
+        if (
+            not isinstance(parsed_proxy, ipaddress.IPv4Address)
+            or not parsed_proxy.is_private
+            or parsed_proxy.is_loopback
+            or parsed_proxy.is_unspecified
+        ):
+            raise ValueError("Informe o endereço IPv4 privado concreto do serviço web.")
     parsed = urlsplit(origin)
     if (
         parsed.scheme != "https"
         or not parsed.hostname
+        or parsed.hostname.startswith(".")
         or parsed.username
         or parsed.password
         or parsed.path
@@ -77,17 +101,19 @@ def prepare(root, origin, fresh=False, source_env=None, source_key=None, source_
     else:
         write_private_file(key_path, key)
         write_private_file(root / "data/financehub.db", snapshot)
+    runtime_root = PurePosixPath("/state") if target == "docker" else root
     settings = {
         "APP_ENV": "production",
+        "DEPLOYMENT_MODE": "docker" if target == "docker" else "native",
         "JWT_SECRET_KEY": secrets.token_hex(32),
         "AUTH_COOKIE_SECURE": "true",
         "AUTH_ALLOWED_ORIGINS": origin,
-        "DATABASE_URI": "sqlite:///" + (root / "data/financehub.db").as_posix(),
-        "DATA_ENCRYPTION_KEY_FILE": key_path.as_posix(),
-        "BACKUP_DIRECTORY": (root / "backups").as_posix(),
-        "SERVER_HOST": "127.0.0.1",
+        "DATABASE_URI": "sqlite:///" + (runtime_root / "data/financehub.db").as_posix(),
+        "DATA_ENCRYPTION_KEY_FILE": (runtime_root / "keys/financial-data-keys.json").as_posix(),
+        "BACKUP_DIRECTORY": (runtime_root / "backups").as_posix(),
+        "SERVER_HOST": "0.0.0.0" if target == "docker" else "127.0.0.1",
         "SERVER_PORT": "8000",
-        "TRUSTED_PROXY": "127.0.0.1",
+        "TRUSTED_PROXY": proxy,
     }
     preserved = "".join(
         binding.original.string
@@ -113,6 +139,8 @@ def main():
     parser.add_argument("--source-env")
     parser.add_argument("--source-key")
     parser.add_argument("--source-database")
+    parser.add_argument("--target", choices=("native", "docker"), default="native")
+    parser.add_argument("--docker-proxy")
     args = parser.parse_args()
     try:
         prepare(
@@ -122,6 +150,8 @@ def main():
             args.source_env,
             args.source_key,
             args.source_database,
+            args.target,
+            args.docker_proxy,
         )
     except (OSError, ValueError, RuntimeError, sqlite3.Error):
         parser.exit(

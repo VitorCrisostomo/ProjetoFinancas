@@ -15,9 +15,21 @@ def run():
     if app.config["APP_ENV"] != "production":
         raise RuntimeError("Configure APP_ENV=production antes de iniciar o servidor.")
     proxy = os.getenv("TRUSTED_PROXY", "127.0.0.1")
-    ipaddress.ip_address(proxy)  # Nunca aceita o curinga de confiança irrestrita.
+    proxy_address = ipaddress.ip_address(proxy)
     host = os.getenv("SERVER_HOST", "127.0.0.1")
-    if not ipaddress.ip_address(host).is_loopback:
+    address = ipaddress.ip_address(host)
+    if app.config.get("DEPLOYMENT_MODE", "native") == "docker":
+        if host != "0.0.0.0" or not isinstance(proxy_address, ipaddress.IPv4Address):
+            raise RuntimeError("Docker exige bind IPv4 interno e proxy concreto do serviço web.")
+        if (
+            not proxy_address.is_private
+            or proxy_address.is_loopback
+            or proxy_address.is_unspecified
+        ):
+            raise RuntimeError("Docker exige o IP privado específico do serviço web.")
+        if proxy != os.getenv("FINANCEHUB_DOCKER_PROXY"):
+            raise RuntimeError("O proxy da configuração deve corresponder à rede do Compose.")
+    elif not address.is_loopback:
         raise RuntimeError("O servidor interno deve escutar apenas em loopback.")
     with app.app_context():
         if not set(db.metadata.tables).issubset(inspect(db.engine).get_table_names()):

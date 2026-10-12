@@ -73,6 +73,41 @@ class ProductionStateTests(unittest.TestCase):
             self.prepare_existing()
         self.assertEqual(sentinel.read_text(encoding="utf-8"), "preserve")
 
+    def test_docker_migration_preserves_keys_and_rewrites_windows_paths(self):
+        original_key = self.key.read_bytes()
+        prepare_module.prepare(
+            self.output,
+            "https://finance.fixture.ts.net",
+            source_env=self.env,
+            source_key=self.key,
+            source_database=self.database,
+            target="docker",
+            docker_proxy="172.31.44.3",
+        )
+        values = dotenv_values(self.output / "config/app.env")
+        self.assertEqual(values["DEPLOYMENT_MODE"], "docker")
+        self.assertEqual(values["DATABASE_URI"], "sqlite:////state/data/financehub.db")
+        self.assertEqual(values["DATA_ENCRYPTION_KEY_FILE"], "/state/keys/financial-data-keys.json")
+        self.assertEqual(values["BACKUP_DIRECTORY"], "/state/backups")
+        self.assertEqual(values["TRUSTED_PROXY"], "172.31.44.3")
+        self.assertEqual(values["SERVER_HOST"], "0.0.0.0")
+        self.assertNotIn("FINANCEHUB_FILE_ACCESS_SID", values)
+        self.assertEqual((self.output / "keys/financial-data-keys.json").read_bytes(), original_key)
+
+    def test_invalid_docker_profile_is_rejected_before_creating_state(self):
+        for overrides in (
+            {"target": "invalid"},
+            {"target": "native", "docker_proxy": "172.30.84.3"},
+            {"target": "docker", "docker_proxy": "*"},
+            {"target": "docker", "docker_proxy": "8.8.8.8"},
+            {"target": "docker", "docker_proxy": "127.0.0.1"},
+        ):
+            with self.subTest(overrides=overrides), self.assertRaises(ValueError):
+                prepare_module.prepare(
+                    self.output, "https://finance.fixture.ts.net", fresh=True, **overrides
+                )
+        self.assertFalse(self.output.exists())
+
     def test_state_inside_checkout_is_rejected_before_any_creation(self):
         with self.assertRaisesRegex(ValueError, "fora do checkout"):
             prepare_module.prepare(

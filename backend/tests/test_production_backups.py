@@ -5,6 +5,7 @@ import importlib.util
 import json
 import os
 import sqlite3
+import subprocess
 import sys
 import unittest
 from contextlib import closing
@@ -119,6 +120,47 @@ class ProductionBackupTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "ainda não exista"):
             backup_service.restore_backup(path, destination)
         self.assertEqual(sentinel.read_bytes(), b"NAO-SOBRESCREVER")
+
+    def test_disaster_recovery_works_without_original_database_or_environment(self):
+        backup = backup_service.create_backup()
+        key = self.root / "offline-keys.json"
+        key.write_text(
+            json.dumps(
+                {"active_key": "test", "keys": {"test": base64.b64encode(b"z" * 32).decode()}}
+            ),
+            encoding="utf-8",
+        )
+        self.engine.dispose()
+        self.path.unlink()
+        Path(test_app.config["PLUGGY_ENV_FILE"]).unlink()
+        destination = self.root / "recovered-after-loss"
+        script = Path(__file__).resolve().parents[2] / "deploy/docker/restore_backup.py"
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-B",
+                str(script),
+                "--backup",
+                str(backup),
+                "--key",
+                str(key),
+                "--output-dir",
+                str(destination),
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("MARCADOR-FICTICIO", result.stdout + result.stderr)
+        with closing(sqlite3.connect(destination / "financehub.db")) as connection:
+            self.assertEqual(
+                connection.execute("SELECT count(*) FROM transactions").fetchone()[0], 2
+            )
+            self.assertTrue(
+                all(row[0] for row in connection.execute("SELECT revoked FROM auth_sessions"))
+            )
+        self.assertEqual((destination / "app.env").read_text(encoding="utf-8"), self.environment)
 
     def test_modified_backup_or_wrong_key_cannot_restore_any_files(self):
         path = backup_service.create_backup()

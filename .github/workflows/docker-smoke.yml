@@ -1,0 +1,40 @@
+name: Docker smoke
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/docker-smoke.yml'
+      - '.dockerignore'
+      - 'deploy/**'
+      - 'backend/**'
+      - 'frontend/**'
+      - 'requirements.txt'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-smoke-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  linux-docker:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      # actions/checkout v4.2.2, SHA conferido na release oficial.
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Check Linux runtime
+        run: |
+          docker version
+          docker compose version
+      - name: Validate Docker integration
+        run: |
+          bash -n deploy/docker/smoke_test.sh
+          bash deploy/docker/smoke_test.sh
+          bash -n deploy/docker/smoke_test.sh
+      - name: Build and exercise synthetic installation
+        run: bash deploy/docker/smoke_test.sh

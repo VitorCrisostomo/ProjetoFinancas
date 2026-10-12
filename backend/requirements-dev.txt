@@ -1,2 +1,5 @@
-# Ferramentas de desenvolvimento; dependências da aplicação estão na raiz.
+# Ambiente completo para desenvolver e verificar a aplicação.
+-r requirements-production.txt
 ruff==0.16.9
+# Windows não fornece a base IANA necessária aos testes do agendador Linux.
+tzdata==2026.5; sys_platform == "win32"

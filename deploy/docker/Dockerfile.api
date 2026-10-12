@@ -1,0 +1,32 @@
+# Imagem multiarch oficial, fixada por digest do índice AMD64/ARM64.
+FROM python:3.14.8-slim-trixie@sha256:f85c5697265c178cc6887276c55fe16cf3d14ca35c3df6a5eab3b360534a55d2
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    FINANCEHUB_ENV_FILE=/state/config/app.env
+
+WORKDIR /app
+COPY requirements.txt /app/requirements.txt
+COPY backend/requirements-production.txt /app/backend/requirements-production.txt
+RUN python -m pip install --no-cache-dir -r /app/backend/requirements-production.txt \
+    && python -c 'from zoneinfo import ZoneInfo; ZoneInfo("America/Sao_Paulo")' \
+    && groupadd --gid 10001 financehub \
+    && useradd --uid 10001 --gid 10001 --no-create-home --shell /usr/sbin/nologin financehub
+
+# Não copie o checkout inteiro: configuração, banco e chaves são volumes externos.
+COPY backend/config.py backend/main.py backend/server.py /app/backend/
+COPY backend/exceptions /app/backend/exceptions/
+COPY backend/models /app/backend/models/
+COPY backend/repositories /app/backend/repositories/
+COPY backend/routes /app/backend/routes/
+COPY backend/services /app/backend/services/
+COPY deploy/prepare_state.py deploy/run_backup.py /app/deploy/
+COPY deploy/docker/*.py /app/deploy/docker/
+
+WORKDIR /app/backend
+USER 10001:10001
+EXPOSE 8000
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD ["python", "-B", "/app/deploy/docker/check_api_health.py"]
+CMD ["python", "-B", "server.py"]

@@ -166,6 +166,14 @@ class AuthConfigurationTests(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             self.load_config({"APP_ENV": "produciton"})
 
+    def test_deployment_mode_defaults_to_native_and_rejects_invalid_values(self):
+        self.assertEqual(self.load_config().app.config["DEPLOYMENT_MODE"], "native")
+        self.assertEqual(
+            self.load_config({"DEPLOYMENT_MODE": "docker"}).app.config["DEPLOYMENT_MODE"], "docker"
+        )
+        with self.assertRaises(RuntimeError):
+            self.load_config({"DEPLOYMENT_MODE": "unrestricted"})
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -94,6 +94,38 @@ class ProductionServerTests(unittest.TestCase):
                     self.server.run()
         self.serve.assert_not_called()
 
+    def test_docker_binds_inside_the_container_and_trusts_only_the_web_service(self):
+        test_app.config["DEPLOYMENT_MODE"] = "docker"
+        with patch.dict(
+            os.environ,
+            {
+                "SERVER_HOST": "0.0.0.0",
+                "TRUSTED_PROXY": "172.30.84.3",
+                "FINANCEHUB_DOCKER_PROXY": "172.30.84.3",
+            },
+        ):
+            self.server.run()
+        self.assertEqual(self.serve.call_args.kwargs["host"], "0.0.0.0")
+        self.assertEqual(self.serve.call_args.kwargs["trusted_proxy"], "172.30.84.3")
+
+    def test_docker_rejects_a_stale_proxy_and_unrestricted_or_public_trust(self):
+        test_app.config["DEPLOYMENT_MODE"] = "docker"
+        for proxy in ("127.0.0.1", "0.0.0.0", "8.8.8.8", "172.30.84.4"):
+            with (
+                self.subTest(proxy=proxy),
+                patch.dict(
+                    os.environ,
+                    {
+                        "SERVER_HOST": "0.0.0.0",
+                        "TRUSTED_PROXY": proxy,
+                        "FINANCEHUB_DOCKER_PROXY": "172.30.84.3",
+                    },
+                ),
+                self.assertRaises(RuntimeError),
+            ):
+                self.server.run()
+        self.serve.assert_not_called()
+
     def test_missing_initialization_stops_startup_without_creating_tables(self):
         inspector = SimpleNamespace(get_table_names=lambda: [])
         with (

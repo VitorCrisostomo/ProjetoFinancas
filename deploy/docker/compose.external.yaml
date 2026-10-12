@@ -1,0 +1,15 @@
+# Inclua este arquivo somente quando houver um destino externo realmente disponível.
+services:
+  backup:
+    command: ["python", "-B", "-u", "/app/deploy/docker/backup_scheduler.py", "--state-dir", "/state", "--timezone", "America/Sao_Paulo", "--external-directory", "/external-backups"]
+    volumes:
+      - type: bind
+        source: ${FINANCEHUB_EXTERNAL_BACKUP_DIR:?Informe a pasta externa existente}
+        target: /external-backups
+        bind: {create_host_path: false}
+  maintenance:
+    volumes:
+      - type: bind
+        source: ${FINANCEHUB_EXTERNAL_BACKUP_DIR:?Informe a pasta externa existente}
+        target: /external-backups
+        bind: {create_host_path: false}

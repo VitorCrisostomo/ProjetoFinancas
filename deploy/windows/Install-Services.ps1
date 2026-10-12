@@ -66,7 +66,7 @@ with configuration.open(encoding='utf-8') as stream:
         raise SystemExit(1)
 settings = dotenv_values(configuration, interpolate=False)
 origins = [urlsplit(value.strip()) for value in (settings.get('AUTH_ALLOWED_ORIGINS') or '').split(',')]
-if settings.get('APP_ENV') != 'production' or settings.get('AUTH_COOKIE_SECURE', '').lower() != 'true':
+if settings.get('APP_ENV') != 'production' or settings.get('DEPLOYMENT_MODE', 'native') != 'native' or settings.get('AUTH_COOKIE_SECURE', '').lower() != 'true':
     raise SystemExit(1)
 if len(origins) != 1 or origins[0].scheme != 'https' or origins[0].hostname != host or origins[0].netloc.lower() != host or origins[0].path or origins[0].query or origins[0].fragment:
     raise SystemExit(1)
@@ -98,7 +98,8 @@ foreach ($name in @('Api', 'Web')) {
         $executable = $python
         $arguments = '-B -u server.py'
         $working = Join-Path $project 'backend'
-        $environment = '<env name="FINANCEHUB_ENV_FILE" value="' + (Xml $envFile) + '"/>'
+        $environment = '<env name="FINANCEHUB_ENV_FILE" value="' + (Xml $envFile) + '"/>' +
+            '<env name="DEPLOYMENT_MODE" value="native"/>'
         $dependencies = ''
     } else {
         Copy-Item -LiteralPath $caddy -Destination (Join-Path $servicePath 'caddy.exe')
@@ -107,6 +108,9 @@ foreach ($name in @('Api', 'Web')) {
         $working = $project
         $environment = '<env name="APP_HOST" value="' + (Xml $AppHost) + '"/>' +
             '<env name="FRONTEND_ROOT" value="' + (Xml ((Join-Path $state 'www').Replace('\', '/'))) + '"/>' +
+            '<env name="BIND_ADDRESS" value="127.0.0.1"/>' +
+            '<env name="UPSTREAM_ADDRESS" value="127.0.0.1:8000"/>' +
+            '<env name="TRUSTED_PROXY_CIDRS" value="127.0.0.1/32 ::1/128"/>' +
             '<env name="APPDATA" value="' + (Xml $logPath) + '"/>'
         $dependencies = '<depend>FinanceHubApi</depend>'
     }

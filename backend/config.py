@@ -34,6 +34,7 @@ if (app.config["SQLALCHEMY_DATABASE_URI"] or "").startswith("sqlite:"):
     app.config["SQLALCHEMY_ENGINE_OPTIONS"]["connect_args"] = {"timeout": 30}
 app.config["PLUGGY_ENV_FILE"] = str(environment_file)
 app.config["APP_ENV"] = os.getenv("APP_ENV", "development")
+app.config["DEPLOYMENT_MODE"] = os.getenv("DEPLOYMENT_MODE", "native")
 app.config["BACKUP_DIRECTORY"] = os.getenv("BACKUP_DIRECTORY") or str(
     Path(__file__).resolve().parent / "backups"
 )
@@ -68,6 +69,8 @@ app.config.update(
 
 if app.config["APP_ENV"] not in {"development", "production"}:
     raise RuntimeError("APP_ENV deve ser development ou production.")
+if app.config["DEPLOYMENT_MODE"] not in {"native", "docker"}:
+    raise RuntimeError("DEPLOYMENT_MODE deve ser native ou docker.")
 if app.config["APP_ENV"] == "production":
     origins = app.config["AUTH_ALLOWED_ORIGINS"]
     parsed_origins = [urlsplit(origin) for origin in origins]
