@@ -21,13 +21,19 @@ Ao executar `python main.py`, a inicialização verifica o esquema financeiro, c
 
 ## Configuração e execução
 
-Use Python 3.11 ou superior, com suporte a `sqlite3.Connection.serialize()` e `deserialize()`, e ative o ambiente virtual conforme o [README da raiz](../README.md). Instale as dependências a partir da raiz do repositório:
+O [instalador da raiz](../README.md#instalar-e-usar-localmente) prepara o runtime e a configuração local. Na raiz do repositório, no Windows:
 
-```sh
-python -m pip install -r requirements.txt
+```powershell
+.\setup.bat
+.\setup.bat create-user
+.\setup.bat run
 ```
 
-Copie `.env.example` para `.env` nesta pasta e configure:
+Em outro sistema, use `python3 deploy/setup.py install`, `create-user` e `run`. Não é necessário ativar `.venv` ou copiar JWT/chaves manualmente. O instalador cria o que estiver ausente, preserva as configurações e chaves existentes e verifica o banco antes de inicializá-lo. Exige Python 3.11 ou superior com suporte a `sqlite3.Connection.serialize()` e `deserialize()`; o frontend exige Node/npm para o build.
+
+`run` usa Waitress para atender o build React e a API `/api` na mesma origem `http://127.0.0.1:5173`. Para desenvolver a API separadamente, `setup.bat backend` atende `127.0.0.1:5000`; combine com `setup.bat frontend` para o Vite. Os imports do backend continuam resolvidos a partir de `backend/`, definidos pelo executor.
+
+O arquivo local é `backend/.env`. Para configuração manual, `.env.example` contém as variáveis aceitas:
 
 | Variável | Finalidade |
 |---|---|
@@ -39,9 +45,9 @@ Copie `.env.example` para `.env` nesta pasta e configure:
 | `PLUGGY_USER_<REFERENCIA>_CLIENT_ID` | Client ID individual; gravado no `.env` pelo administrador. |
 | `PLUGGY_USER_<REFERENCIA>_CLIENT_SECRET` | Client Secret individual; gravado no `.env` pelo administrador. |
 
-Gere uma chave local com `python -c "import secrets; print(secrets.token_hex(32))"` e copie o resultado para `JWT_SECRET_KEY`. A aplicação recusa chaves com menos de 32 caracteres. O `.env` local está ignorado pelo Git; o exemplo não contém credenciais reais. Se estiver reutilizando um `.env`, acrescente as novas variáveis a partir do exemplo.
+O instalador gera JWT aleatório para uma configuração nova e não imprime seu valor. A aplicação recusa chaves com menos de 32 caracteres. O `.env` local está ignorado pelo Git; o exemplo não contém credenciais reais. Configurações existentes são preservadas. Não substitua a chave financeira de um banco existente para tentar corrigir uma falha de decriptação.
 
-Antes de importar a aplicação, gere o arquivo de chaves como descrito a seguir. Execute `python main.py` a partir de `backend/` depois da preparação do banco. A API de desenvolvimento atende na porta 5000. Os imports atuais são resolvidos a partir dessa pasta.
+Os comandos `setup.bat create-user`, `reset-password`, `configure-pluggy` e `admin <argumentos Flask>` usam a configuração local e o Python de `.venv`. Para uma configuração existente, `setup.bat configure` executa apenas a preparação/verificação da configuração. Em produção, use a configuração externa e o procedimento correspondente do [Windows](../deploy/README.md) ou [Docker](../deploy/docker/README.md); o modo local não instala serviços nem ativa HTTPS.
 
 ## Criptografia dos dados financeiros
 
@@ -58,7 +64,7 @@ Essa é criptografia em repouso na aplicação. O administrador com acesso à ch
 
 ### Geração e proteção da chave
 
-Para preparar uma instalação nova, na pasta `backend/`, com as dependências instaladas, execute uma única vez para um arquivo novo:
+O instalador já gera o arquivo financeiro em uma instalação local nova. Se optar pela preparação manual, na pasta `backend/`, com as dependências instaladas, execute uma única vez para um arquivo novo:
 
 ```sh
 python -m services.data_encryption generate-key --file .secrets/financial-data-keys.json
@@ -243,7 +249,13 @@ A associação múltipla recebe `transaction_ids` em ordem de seleção, mantém
 
 O Ruff está fixado em `requirements-dev.txt`, com configuração em `pyproject.toml`. É uma ferramenta de desenvolvimento, não uma dependência de execução da API.
 
-Na raiz do repositório:
+O instalador inclui as ferramentas de desenvolvimento por padrão. Para executar as verificações pelo mesmo runtime, na raiz do repositório:
+
+```powershell
+.\setup.bat check
+```
+
+Em outro sistema, use `python3 deploy/setup.py check` ou `make check`. A opção `install --runtime-only` omite as ferramentas necessárias a esse comando. Para executar o Ruff manualmente, ative o ambiente virtual ou use seu executável Python:
 
 ```sh
 python -m pip install -r backend/requirements-dev.txt

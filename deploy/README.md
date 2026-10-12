@@ -1,6 +1,6 @@
 # Produção em home server
 
-Este guia prepara **Windows primeiro**, com migração posterior para Linux sem Docker e, depois, contêineres. A aplicação mantém Flask, React e SQLite; a camada de execução fica em `deploy/`, e o estado persistente fica fora do código. Os comandos abaixo devem ser executados no home server, com caminhos e hostname reais.
+Este projeto oferece **Windows com serviços nativos** e **Linux com Docker Compose**. A aplicação mantém Flask, React e SQLite; a camada de execução fica em `deploy/`, e o estado persistente fica fora do código. Este guia contém o procedimento Windows e as rotinas de manutenção comuns. Para instalar ou migrar para contêineres, siga o [guia Linux com Docker](docker/README.md). Os comandos devem ser executados no home server, com caminhos e hostname reais.
 
 ## Arquitetura
 
@@ -18,7 +18,7 @@ flowchart LR
     Job --> Backup[Backup criptografado]
 ```
 
-O Tailscale Serve termina TLS e disponibiliza a aplicação somente aos dispositivos autorizados da tailnet. O Caddy atende o build, permite recarregar rotas do React e encaminha `/api` para a API. Ambos os servidores internos escutam apenas em `127.0.0.1`. O navegador usa uma única origem HTTPS, com cookies `Secure`, `HttpOnly`, proteção CSRF e o login individual da aplicação. A autorização do Tailscale controla o acesso à rede; a autorização do backend continua controlando os dados de cada usuário. [Documentação do Serve](https://tailscale.com/docs/features/tailscale-serve).
+O Tailscale Serve termina TLS e disponibiliza a aplicação somente aos dispositivos autorizados da tailnet. O Caddy atende o build, permite recarregar rotas do React e encaminha `/api` para a API. No Windows, ambos os servidores internos escutam apenas em `127.0.0.1`. No Docker, a API atende a rede dos contêineres, sem porta publicada; o frontend é publicado somente em `127.0.0.1:8080` no host. O navegador usa uma única origem HTTPS, com cookies `Secure`, `HttpOnly`, proteção CSRF e o login individual da aplicação. A autorização do Tailscale controla o acesso à rede; a autorização do backend continua controlando os dados de cada usuário. [Documentação do Serve](https://tailscale.com/docs/features/tailscale-serve).
 
 Esta configuração usa **Serve privado**, sem publicar a aplicação com Funnel e sem encaminhar as portas internas no roteador. O Caddy está com HTTPS automático desativado porque o certificado pertence ao Tailscale. HTTP em loopback permanece dentro do próprio servidor. O endereço normal de acesso será `https://<servidor>.<tailnet>.ts.net`, sem `:8000` ou `:8080`.
 
@@ -30,7 +30,7 @@ Esta configuração usa **Serve privado**, sem publicar a aplicação com Funnel
 | `deploy/run_backup.py` | Backup, verificação, retenção, cópia externa opcional e registro de sucesso/falha. |
 | `deploy/windows/Install-Services.ps1` | Gera e valida serviços; com `-Install`, registra serviços Windows e tarefa diária. |
 | `deploy/windows/Invoke-Backend.ps1` | Inicialização, verificações e comandos administrativos usando a configuração externa. |
-| `deploy/linux/` | Templates systemd para a etapa futura em Linux. |
+| `deploy/docker/` | Imagens, Compose, configuração do proxy e agendador para Linux com Docker. |
 
 ## Código e estado separados
 
@@ -55,6 +55,41 @@ C:\ProgramData\FinanceHub\state\          estado persistente, fora do checkout
 A chave financeira é independente da chave JWT e das credenciais Pluggy. Preserve o arquivo de chaves completo ao reutilizar dados ou backups. O backup periódico inclui banco e configuração **dentro do envelope criptografado**, mas não inclui o arquivo de chaves. Mantenha uma cópia protegida dessas chaves em outro meio, separada dos backups; perder todas as cópias impede recuperar os dados. O administrador do servidor, que possui a chave, continua capaz de decifrá-los.
 
 ## Instalação Windows
+
+### Preparação automática
+
+O instalador reúne a preparação do runtime, o build e o estado externo em um comando. Antes de usá-lo, instale Python e Node/npm, escolha o hostname real do Tailscale e reserve o checkout dedicado descrito no passo 1 abaixo. No PowerShell, na raiz do projeto, para uma instalação **nova**:
+
+```powershell
+.\setup.bat production --state-dir "C:\ProgramData\FinanceHub\state" --origin "https://servidor.sua-tailnet.ts.net" --fresh --create-user
+```
+
+O comando cria `.venv`, instala as dependências de produção, executa `npm ci` e o build React, prepara a configuração e as chaves externas, publica o build em `state\www`, inicializa/verifica o banco e cria um backup verificado. `--create-user` solicita interativamente o primeiro acesso; omita-o ao preservar contas já existentes. O instalador não registra serviços, altera ACLs de serviço ou ativa HTTPS automaticamente.
+
+Para aproveitar uma instalação existente, substitua `--fresh` pelas três fontes explícitas da **mesma instalação**, com a API de origem parada:
+
+```powershell
+.\setup.bat production --state-dir "C:\ProgramData\FinanceHub\state" --origin "https://servidor.sua-tailnet.ts.net" --source-env "D:\FinanceHub-origem\backend\.env" --source-key "D:\FinanceHub-origem\backend\.secrets\financial-data-keys.json" --source-database "D:\FinanceHub-origem\backend\instance\financehub.db"
+```
+
+Os caminhos são exemplos. O estado de destino ainda não deve existir. A preparação preserva AES, usuários e dados, gera JWT novo e reescreve os caminhos. Nunca use `--fresh` para substituir um banco ou recuperar backups; uma chave financeira nova não decifra registros antigos.
+
+Se Caddy e WinSW oficiais já estiverem disponíveis, acrescente `--winsw` e `--caddy` ao comando escolhido para gerar e validar também os XMLs dos serviços. `--external-backups` acrescenta a cópia para uma pasta existente em outro meio. Este é um exemplo alternativo completo de instalação nova, para usar **em vez** do primeiro comando:
+
+```powershell
+.\setup.bat production --state-dir "C:\ProgramData\FinanceHub\state" --origin "https://servidor.sua-tailnet.ts.net" --fresh --create-user --winsw "C:\FinanceHub\tools\WinSW-x64.exe" --caddy "C:\FinanceHub\tools\caddy.exe" --external-backups "E:\FinanceHubBackups"
+```
+
+O instalador recusa um estado de destino que já existe. Para atualizações, use a [rotina de manutenção](#atualizações-e-retorno-à-versão-anterior), sem recriar a configuração ou as chaves. O destino externo precisa existir e estar disponível. Sem os executáveis, a preparação do aplicativo termina e o instalador indica a etapa manual dos serviços.
+
+Depois de preparar o estado, comandos administrativos também podem usar o instalador com o arquivo externo escolhido **antes** do comando:
+
+```powershell
+.\setup.bat --env-file "C:\ProgramData\FinanceHub\state\config\app.env" create-user
+.\setup.bat --env-file "C:\ProgramData\FinanceHub\state\config\app.env" reset-password
+```
+
+Conclua o registro dos serviços no PowerShell elevado, conforme o passo 6, e ative o Tailscale Serve conforme o passo 7. Confira o backup pela identidade da tarefa, o HTTPS e o reinício no servidor real. Os passos detalhados abaixo continuam disponíveis para preparação manual, inspeção ou diagnóstico; não é necessário refazer a criação do estado depois da preparação automática.
 
 ### 1. Preparar o servidor e o endereço
 
@@ -336,38 +371,12 @@ npm.cmd run build
 Set-Location -LiteralPath $Project
 ```
 
-Os testes do proxy verificam a rejeição de hosts antes de atender arquivos ou API, o fallback do React, o cache e os cabeçalhos encaminhados. A instalação dos serviços, as permissões das identidades reais, o agendamento e o certificado HTTPS precisam ser conferidos no servidor de destino. Os templates Linux serão validados quando essa etapa for implementada.
+Os testes do proxy verificam a rejeição de hosts antes de atender arquivos ou API, o fallback do React, o cache e os cabeçalhos encaminhados. A instalação dos serviços, as permissões das identidades reais, o agendamento e o certificado HTTPS precisam ser conferidos no servidor de destino. Para o Docker, confira também o build das imagens, a saúde dos contêineres, os volumes e a restauração no Linux de destino, conforme o guia específico.
 
-## Próxima etapa: Linux sem Docker
+## Linux com Docker
 
-Os templates em `deploy/linux/` usam os mesmos comandos Python e o mesmo Caddyfile. São arquivos para adaptar e validar no Linux escolhido; a instalação Windows não os ativa. O layout previsto é `/opt/financehub` para código/runtime e `/var/lib/financehub` para estado, com Tailscale instalado no host. A chave AES e as credenciais são migradas pelo processo de backup/restauração e preparação acima, sem gerar outra chave financeira.
+O [guia de contêineres](docker/README.md) é a opção Linux deste projeto. Ele cobre instalação nova, migração do Windows, bootstrap do estado, inicialização explícita do banco, administração de usuários, HTTPS, backups, atualização e recuperação. A opção Windows acima permanece disponível sem Docker.
 
-Prepare os usuários de serviço `financehub-api` e `financehub-web`. O código e a `.venv` devem ser mantidos pelo administrador e legíveis pelos serviços, sem permissão de escrita por eles. Gere o estado como `financehub-api`, ou ajuste sua propriedade depois da preparação: arquivos privados são `0600`, portanto executar o bootstrap como `root` e esquecer a propriedade impediria a API de lê-los. Permita ao usuário web atravessar a raiz do estado e ler `www` e seus logs, mantendo `config`, `keys`, `data` e `backups` privados ao usuário API. Nenhum segredo deve ficar no checkout. Crie `logs/Web` antes de ativar o serviço web.
+O Compose mantém API, frontend e agendador separados. Apenas o frontend publica uma porta, em `127.0.0.1:8080`; o Tailscale continua no host. A API confia somente no IP reservado ao proxy nessa rede. A pasta `config` é montada como diretório com escrita para manter as atualizações atômicas das credenciais; as chaves são montadas somente para leitura. O código e o build ficam nas imagens, sem banco, credenciais ou chaves. Backups continuam usando o mesmo formato criptografado e podem ser migrados entre as duas opções, preservando as chaves e reescrevendo os caminhos do ambiente recuperado.
 
-Revise nos templates o hostname, os caminhos dos binários e o armazenamento. O serviço API não recebe o conteúdo de `app.env` por `EnvironmentFile=`; recebe somente `FINANCEHUB_ENV_FILE`, permitindo à aplicação ler dinamicamente suas credenciais. O serviço web inclui isolamento adicional dos diretórios sensíveis. O timer é diário, com recuperação de execução perdida; os logs operacionais são enviados ao journal. [Execução e isolamento no systemd](https://www.freedesktop.org/software/systemd/man/latest/systemd.exec.html); [timers](https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html).
-
-Para cópia externa, ajuste `ExecStart` do serviço de backup com `--external-directory`, acrescente a pasta a `ReadWritePaths` e configure a dependência da montagem real. A pasta precisa estar montada e disponível: o job não cria silenciosamente um destino ausente. Dê escrita ao usuário API e preserve as permissões restritas dos backups. Inicialize e verifique o banco com esse mesmo usuário antes de ativar os serviços:
-
-```sh
-cd /opt/financehub/backend
-sudo -u financehub-api env FINANCEHUB_ENV_FILE=/var/lib/financehub/config/app.env /opt/financehub/.venv/bin/python -B -m flask --app main init-db
-sudo -u financehub-api env FINANCEHUB_ENV_FILE=/var/lib/financehub/config/app.env /opt/financehub/.venv/bin/python -B -m flask --app main verify-encrypted-data
-```
-
-Depois de revisar e copiar as units para `/etc/systemd/system/`, valide-as na versão systemd da distribuição:
-
-```sh
-sudo systemd-analyze verify /etc/systemd/system/financehub-api.service /etc/systemd/system/financehub-web.service /etc/systemd/system/financehub-backup.service /etc/systemd/system/financehub-backup.timer
-sudo systemctl daemon-reload
-sudo systemctl start financehub-backup.service
-sudo systemctl enable --now financehub-api.service financehub-web.service financehub-backup.timer
-sudo tailscale serve --bg http://127.0.0.1:8080
-```
-
-Confira `systemctl status`, `systemctl list-timers` e `journalctl -u financehub-backup.service`. Antes da migração definitiva, teste permissões, restauração, HTTPS, reinício e acesso pelos dispositivos autorizados no Linux real.
-
-## Depois: Linux com Docker
-
-A separação entre código e estado permite construir imagens sem banco, `.env` ou chaves. A futura composição deve manter serviços API e web separados, usuários sem privilégios, diretórios persistentes montados explicitamente, chave somente para leitura e pasta da configuração com escrita para as trocas atômicas. Montar apenas o arquivo `app.env` como arquivo individual pode impedir sua substituição; monte o diretório privado `config`.
-
-O Tailscale pode continuar no host. O proxy da API deverá usar o endereço interno do serviço/contêiner e configurar explicitamente a confiança de proxy; `127.0.0.1` entre contêineres independentes não aponta para a mesma máquina. A rotina de backup continuará usando `run_backup.py`, executada por um agendador com acesso aos volumes e às chaves. Docker/Compose e regras dessa rede serão implementados e testados nessa etapa; esta entrega não exige Docker no Windows.
+Os comandos Docker precisam ser executados e validados em um host Linux com Docker Engine e Compose. Preparar esses arquivos no ambiente Windows de desenvolvimento não ativa contêineres, HTTPS nem serviços no servidor remoto.
