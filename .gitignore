@@ -30,3 +30,14 @@ node_modules/
 .venv/
 venv/
 .ruff_cache/
+
+# Arquivos auxiliares de LaTeX; as fontes .tex e os PDFs permanecem versionados.
+*.aux
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+relatorio/*.log
+relatorio/*.out
+docs/relatorio/*.log
+docs/relatorio/*.out

@@ -1,0 +1,917 @@
+\documentclass[11pt,a4paper,oneside]{report}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[brazil]{babel}
+\usepackage[a4paper,margin=2.5cm]{geometry}
+\usepackage{lmodern}
+\usepackage{microtype}
+\usepackage{array,booktabs,longtable,tabularx}
+\usepackage{amsmath}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\definecolor{accent}{HTML}{17476B}
+\hypersetup{colorlinks=true,linkcolor=accent,urlcolor=accent,
+  pdftitle={Projeto Finanças: aplicação, home server e rede doméstica},
+  pdfsubject={Relatório técnico e financeiro em desenvolvimento}}
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{6pt}
+\setlength{\emergencystretch}{3em}
+\renewcommand{\arraystretch}{1.2}
+\setlist{nosep,leftmargin=*}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcommand{\pendente}{\textit{A definir}}
+\newcommand{\naoinformado}{\textit{Não informado}}
+\newcommand{\dinheiro}[1]{R\$\,#1}
+% Atualizar estes campos e manter as revisões futuras neste mesmo arquivo.
+\newcommand{\versaorelatorio}{0.5}
+\newcommand{\datarelatorio}{8 de outubro de 2026}
+\newcommand{\autorrelatorio}{Autor: a definir}
+
+\begin{document}
+\begin{titlepage}
+\centering
+\vspace*{2cm}
+{\Large RELATÓRIO DE DESENVOLVIMENTO\par}
+\vspace{1.2cm}
+{\Huge\bfseries\color{accent} Projeto Finanças\par}
+\vspace{0.7cm}
+{\Large Aplicação financeira, home server\\e rede doméstica\par}
+\vspace{1.5cm}
+{\large Documentação técnica e levantamento financeiro\par}
+\vfill
+{\large \autorrelatorio\par}
+\vspace{0.5cm}
+Versão \versaorelatorio{} --- documento em desenvolvimento\par
+\datarelatorio\par
+\end{titlepage}
+
+\chapter*{Resumo}
+\addcontentsline{toc}{chapter}{Resumo}
+Este relatório acompanha a evolução do Projeto Finanças, identificado como
+FinanceHub na documentação da aplicação, e sua futura hospedagem em um servidor
+residencial. O escopo reúne o desenvolvimento do software, o reaproveitamento e a
+aquisição de componentes, a montagem do computador, a instalação do Proxmox VE,
+a implantação dos serviços
+e a organização da rede doméstica.
+
+Na data desta versão, a aplicação está em fase de finalização e a aquisição de
+componentes para o servidor está começando, conforme informado pelo responsável.
+A instalação definitiva, a configuração da rede e os resultados dos testes no
+servidor ainda precisam ser registrados. O levantamento financeiro separa o
+patrimônio já disponível, os novos desembolsos e as despesas recorrentes, sem
+atribuir valores a compras ou medições que não foram informadas.
+O orçamento inicial informado é de \dinheiro{15.000,00}. A primeira lista de
+componentes para o computador principal soma \dinheiro{11.100,00}.
+Com um rack de piso de 12U e dois gabinetes rack 4U, estimados em
+\dinheiro{1.744,00}, e um switch de \dinheiro{400,00}, o total dos itens com
+preço informado passa a \dinheiro{13.244,00}, com margem preliminar de
+\dinheiro{1.756,00} antes de fretes e itens adicionais. Está previsto cabeamento
+de rede para dez máquinas, com metragens e custo ainda a levantar.
+As peças antigas serão reaproveitadas no servidor. A correção da memória DDR4
+indicada na plataforma AM5 ainda está pendente.
+Os valores são de planejamento, não gastos comprovados.
+
+\textbf{Palavras-chave:} finanças pessoais; servidor doméstico; Proxmox VE; Docker;
+rede de computadores; orçamento; documentação.
+
+\tableofcontents
+\clearpage
+
+\chapter{Introdução e objetivos}
+\section{Contexto}
+O projeto parte de uma aplicação de gerenciamento financeiro e avança para a
+construção de uma infraestrutura doméstica capaz de hospedá-la e de executar
+outros serviços. O planejamento do home server inclui Proxmox VE como plataforma
+de virtualização, Docker, automações e serviços domésticos.
+Os demais serviços e o volume de utilização serão
+definidos durante a implantação.
+
+A infraestrutura e a aplicação fazem parte de um mesmo processo: desenvolver
+o sistema, preparar o equipamento, disponibilizar o acesso e estabelecer
+rotinas de operação, manutenção e recuperação dos dados.
+
+\section{Objetivo geral}
+Documentar a construção e a operação do Projeto Finanças em um home server,
+integrando decisões de software, hardware, rede e viabilidade financeira.
+
+\section{Objetivos específicos}
+\begin{enumerate}
+\item Registrar a arquitetura e a finalização da aplicação financeira.
+\item Levantar os componentes existentes e verificar sua compatibilidade.
+\item Documentar as compras e a montagem física do servidor.
+\item Documentar a instalação do Proxmox VE e a configuração do ambiente virtualizado.
+\item Registrar a escolha do sistema das máquinas virtuais e a implantação dos serviços.
+\item Mapear e configurar a rede doméstica e o acesso autorizado à aplicação.
+\item Acompanhar investimento inicial, despesas recorrentes e desvios do orçamento.
+\item Reunir evidências de testes, manutenção e restauração dos backups.
+\end{enumerate}
+
+\section{Limites desta versão}
+Esta versão constitui a base do relatório. Não representa uma instalação
+concluída nem comprova funcionamento contínuo, desempenho, consumo elétrico ou
+segurança do servidor real. A lista final de compras depende da confirmação
+da compatibilidade e dos itens adicionais para o computador principal,
+o servidor e a rede.
+
+\chapter{Método de documentação e andamento}
+\section{Origem das informações}
+As informações iniciais foram obtidas dos relatos do responsável e da leitura
+dos arquivos \path{README.md}, \path{backend/README.md},
+\path{frontend/ARCHITECTURE.md} e \path{deploy/README.md} do repositório.
+Especificações externas de hardware são identificadas nas referências.
+Informações de documentação descrevem o que o projeto declara ou prepara;
+resultados operacionais exigem registros da execução no equipamento de destino.
+
+\section{Classificação dos registros}
+\begin{description}
+\item[Informado:] dado fornecido pelo responsável, ainda sujeito a conferência física.
+\item[Documentado:] recurso ou procedimento descrito no repositório.
+\item[Planejado:] atividade ou arquitetura proposta, ainda sem execução confirmada.
+\item[Validado:] resultado acompanhado de data, método e evidência verificável.
+\item[Pendente:] informação ausente ou decisão ainda aberta.
+\end{description}
+
+\section{Situação em \datarelatorio}
+\begin{tabularx}{\textwidth}{@{}p{4.1cm}YY@{}}
+\toprule
+Frente & Situação & Próximo registro \\
+\midrule
+Projeto Finanças & Em finalização, segundo o responsável & Versão adotada e resultados da validação final \\
+Componentes & Computador principal novo; peças antigas para o servidor & Compatibilidade e modelos completos \\
+Montagem física & Sem conclusão registrada & Sequência de montagem e testes \\
+Proxmox VE & Instalação planejada & Versão, armazenamento, rede e máquina virtual \\
+Home server & Implantação planejada & Sistema da máquina virtual e serviços instalados \\
+Rede doméstica & Switch definido e cabeamento para dez máquinas previsto & Percursos, metragens, preços e endereçamento \\
+Controle financeiro & Itens com preço: \dinheiro{13.244,00} para orçamento de \dinheiro{15.000,00} & Cabeamento, fretes, demais itens e despesas realizadas \\
+\bottomrule
+\end{tabularx}
+
+\section{Regra de atualização}
+Cada etapa deverá registrar a data, o objetivo, a decisão, sua justificativa,
+os itens envolvidos, o custo, o resultado e a evidência. Fotografias, diagramas,
+medições e comprovantes poderão ser incorporados em versões futuras.
+Capturas devem ocultar credenciais, chaves, dados bancários e identificadores
+pessoais desnecessários ao relato.
+
+\chapter{Desenvolvimento do Projeto Finanças}
+\section{Finalidade e estrutura atual}
+O FinanceHub é descrito no repositório como um gerenciador financeiro com
+backend Flask, frontend React e integração bancária com Pluggy. A documentação
+de produção adota SQLite para a persistência dos dados.
+
+\begin{tabularx}{\textwidth}{@{}p{3cm}YY@{}}
+\toprule
+Camada & Tecnologia documentada & Responsabilidade \\
+\midrule
+Interface & React e Vite & Login, navegação e apresentação dos dados financeiros \\
+API & Flask e SQLAlchemy & Autorização, regras, integração e persistência \\
+Dados & SQLite & Armazenamento local da aplicação \\
+Integração & Pluggy & Conexão de contas e sincronização bancária \\
+Produção & Waitress e Caddy & Execução da API, arquivos estáticos e proxy \\
+\bottomrule
+\end{tabularx}
+
+No frontend, o fluxo documentado é página, hook, serviço HTTP e API. No backend,
+a organização utiliza rotas, serviços, repositórios e modelos, com exceções
+descritas no guia técnico. Essa separação auxilia a manutenção e a localização
+das responsabilidades do sistema.
+
+\section{Funcionalidades descritas}
+\begin{itemize}
+\item Autenticação individual e contas criadas pelo administrador.
+\item Visualização de contas, transações, saldos e indicadores financeiros.
+\item Sincronização manual de transações bancárias por mês.
+\item Classificação por categorias e subcategorias e associação de lançamentos.
+\item Filtros de período e preferência para ocultar valores na interface.
+\end{itemize}
+A comprovação da versão final deverá incluir testes desses fluxos com dados de
+teste e, quando necessário, validação controlada da integração real.
+
+\section{Proteção dos dados e recuperação}
+A documentação descreve sessões JWT em cookies HttpOnly, proteção CSRF e
+criptografia AES-256-GCM do conteúdo financeiro de contas e transações.
+A criptografia financeira não abrange todas as tabelas e metadados do banco.
+O administrador e processos com acesso às chaves podem decifrar os dados.
+
+Os procedimentos de produção preveem separação entre código, configuração,
+banco, chaves e backups; cópias periódicas criptografadas; verificação de
+integridade; e restauração em diretório separado. Guardar uma cópia no próprio
+servidor não cobre a perda desse equipamento: o destino externo e a preservação
+das chaves precisam ser definidos e testados.
+
+\section{Finalização e evidências pendentes}
+\begin{tabularx}{\textwidth}{@{}p{4cm}YY@{}}
+\toprule
+Registro & Evidência esperada & Situação nesta versão \\
+\midrule
+Versão de entrega & Identificador da revisão ou versão & \pendente \\
+Validação do backend & Resultado e data dos testes & A registrar para a entrega \\
+Validação do frontend & Build, verificações e fluxos no navegador & A registrar para a entrega \\
+Integração bancária & Sincronização controlada e resultado & A registrar \\
+Backup e recuperação & Arquivo verificado e restauração isolada & A validar no servidor \\
+\bottomrule
+\end{tabularx}
+Os testes históricos descritos no repositório não substituem a validação da
+versão efetivamente instalada. Nesta preparação do relatório, não foram
+executados testes da aplicação ou alterados seus serviços.
+
+\chapter{Componentes e montagem do computador}
+\section{Inventário informado}
+O inventário abaixo corresponde às peças existentes informadas inicialmente.
+A nova lista de compras é registrada separadamente. O responsável confirmou
+o reaproveitamento das peças antigas no servidor, após a atualização do computador
+principal; a execução dessa transferência ainda será documentada.
+\begin{tabularx}{\textwidth}{@{}p{3cm}p{3.7cm}Y@{}}
+\toprule
+Componente & Informação disponível & Conferência necessária \\
+\midrule
+Processador & Intel Core i5-10400F & Confirmar modelo e estado \\
+Placa-mãe & B450M & Confirmar fabricante e modelo completo; incompatibilidade aparente \\
+Memória & 16 GB DDR4 & Quantidade de módulos, frequência e teste \\
+Armazenamento & HD de 1 TB & Modelo, estado e dados já existentes \\
+Fonte & 650 W & Fabricante, modelo, idade e estado \\
+Gabinete e cooler & \naoinformado & Dimensões, suporte às peças e ventilação \\
+Placa de vídeo & \naoinformado & Disponibilidade para instalação e diagnóstico \\
+\bottomrule
+\end{tabularx}
+
+\section{Pendência de compatibilidade}
+O Intel Core i5-10400F usa socket LGA1200 e não possui gráficos integrados,
+conforme a documentação Intel \cite{intelcpu,intelf}. A família B450 pertence
+à plataforma AMD AM4 \cite{amdb450}. Portanto, o conjunto informado não pode
+ser montado como está. O modelo correto deverá ser conferido antes de escolher
+uma placa substituta ou comprar outro processador.
+
+A necessidade de manter uma placa de vídeo durante a operação sem monitor
+depende do comportamento de inicialização da placa-mãe real e será testada.
+O nome B450M sozinho também não identifica todas as especificações da placa.
+
+\section{Nova lista de componentes para compra}
+Foi informada uma configuração com AMD Ryzen 7 9700X, water cooler, placa-mãe
+ASUS B650M, memória de 32 GB, Radeon RX 9070 XT de 16 GB, SSD de 500 GB,
+HD de 2 TB e fonte modular de 850 W, 80 Plus Gold. Os preços de cada item
+constam no levantamento financeiro. Essa configuração é destinada ao
+\textbf{computador principal}; as peças antigas serão utilizadas no home server.
+Não há confirmação de compra, recebimento ou montagem desses itens.
+
+\subsection{Compatibilidade e especificações pendentes}
+\textbf{A memória DDR4 de 32 GB (2 módulos de 16 GB), 3200 MHz, da lista não é
+compatível com o conjunto Ryzen 7 9700X e B650.} A plataforma utiliza socket
+AM5 e memória DDR5 \cite{ryzen9700,asusb650}. O item deve ser corrigido para
+um kit DDR5 compatível; modelo, frequência e preço serão confirmados novamente.
+O valor de \dinheiro{1.000,00} foi mantido apenas para reproduzir a lista recebida.
+
+ASUS B650M identifica uma família, não o modelo completo. Será necessário
+consultar a lista de CPUs suportadas e a versão de BIOS exigida para o 9700X
+na placa escolhida. Também permanecem pendentes os modelos do water cooler,
+SSD, HD, fonte e placa de vídeo, além do gabinete e das dimensões para montagem.
+A Radeon RX 9070 XT está prevista para o computador principal e não faz parte
+da configuração planejada do servidor. A placa de vídeo disponível para a
+montagem inicial do servidor com o i5-10400F ainda precisa ser identificada.
+
+\section{Rack e gabinetes previstos}
+A infraestrutura física passa a incluir um rack de servidor de piso,
+padrão de 19 polegadas, 12U, medida de 470 mm informada e estrutura desmontável,
+além de dois gabinetes K-mex rack de 19 polegadas, 4U, modelo CR-S350, sem fonte.
+Os valores previstos são \dinheiro{944,00} para o rack e \dinheiro{400,00}
+por gabinete. A interpretação do preço dos gabinetes como unitário deverá
+ser conferida na cotação ou no pedido.
+
+Os dois gabinetes representam 8U de ocupação nominal, restando 4U dos 12U
+do rack para outros equipamentos e acessórios. Essa contagem não confirma
+o encaixe físico: serão conferidos a profundidade útil do rack, as dimensões
+dos gabinetes, o método de fixação e o espaço para cabos e ventilação.
+A medida de 470 mm não foi tratada como profundidade útil confirmada.
+A destinação de cada gabinete será registrada no plano de montagem.
+As fontes necessárias serão contabilizadas conforme reaproveitamento ou compra,
+pois os gabinetes informados não incluem fonte.
+
+\section{Itens a avaliar para aquisição}
+\begin{itemize}
+\item SSD para sistema, serviços e dados ativos: modelo e capacidade a definir.
+\item Correção do conjunto processador e placa-mãe, se a incompatibilidade for confirmada.
+\item Cooler, ventoinhas, cabos e acessórios de fixação dos gabinetes no rack,
+conforme o inventário físico e a conferência dimensional.
+\item Meio separado para backups e, conforme orçamento, proteção elétrica.
+\item Componentes de rede somente após verificar os equipamentos já existentes.
+\end{itemize}
+O dimensionamento deverá distinguir os 16 GB do inventário existente e os
+32 GB propostos na lista nova, cuja tecnologia precisa ser corrigida. A memória
+do servidor parte dos 16 GB DDR4 existentes; os 32 GB da lista nova são para o
+computador principal. Uma expansão do servidor será avaliada considerando
+Proxmox VE, máquinas virtuais e serviços. Nenhuma aquisição é registrada
+como realizada sem confirmação de item, data e valor.
+
+\section{Sequência prevista de montagem}
+\begin{enumerate}
+\item Conferir modelos, compatibilidade, acessórios e manuais dos componentes.
+\item Registrar fotos e o estado inicial das peças, com o equipamento desligado.
+\item Instalar processador, cooler e memória conforme os manuais.
+\item Fixar placa-mãe, fonte e armazenamento e conectar os cabos.
+\item Conferir alimentação, ventilação e conexões antes da primeira partida.
+\item Registrar detecção de CPU, memória e discos no firmware.
+\item Testar estabilidade, memória, temperaturas e estado dos discos.
+\end{enumerate}
+
+\section{Registro da execução}
+\begin{tabularx}{\textwidth}{@{}p{4.4cm}Y@{}}
+\toprule
+Campo & Informação \\
+\midrule
+Data da montagem & \pendente \\
+Configuração efetivamente montada & \pendente \\
+Versão do firmware e ajustes & \pendente \\
+Problemas e soluções & A registrar durante a montagem \\
+Resultados e fotografias & A registrar após a execução \\
+\bottomrule
+\end{tabularx}
+
+\chapter{Implantação do home server}
+\section{Arquitetura prevista}
+O planejamento passa a incluir a instalação do Proxmox VE no computador físico
+e a criação de uma máquina virtual Linux para executar o Docker e os serviços
+domésticos. A versão do Proxmox, a distribuição Linux da máquina virtual e a
+alocação de recursos ainda serão definidas. O repositório também contém
+procedimentos de produção para Windows com serviços nativos.
+
+O Proxmox VE gerencia máquinas virtuais e contêineres. Para os serviços Docker,
+o desenho previsto utiliza uma máquina virtual, conforme a orientação da
+documentação oficial para essa forma de implantação \cite{proxmox}.
+
+\begin{center}
+\fbox{\parbox{0.88\textwidth}{\centering
+Computador físico $\longrightarrow$ Proxmox VE\\[4pt]
+Proxmox VE $\longrightarrow$ máquina virtual Linux\\[4pt]
+Máquina virtual Linux $\longrightarrow$ Docker e serviços}}
+\end{center}
+
+A documentação consultada apresenta como desenho de acesso privado:
+\begin{center}
+\fbox{\parbox{0.88\textwidth}{\centering
+Dispositivo autorizado\\
+$\downarrow$ HTTPS privado\\
+Tailscale Serve na máquina virtual Linux\\
+$\downarrow$ proxy local\\
+Caddy: interface React e encaminhamento da API\\
+$\downarrow$\\
+Waitress / Flask $\longrightarrow$ SQLite e chaves protegidas}}
+\end{center}
+Esse desenho é uma referência de implantação, ainda sem validação no servidor.
+O estado dos arquivos de implantação Docker também deverá ser conferido antes
+da instalação: a existência de referências no README não comprova que todos
+os artefatos ou testes estejam concluídos.
+
+\section{Instalação e configuração do Proxmox VE}
+Esta etapa ocorrerá após a montagem e a validação do computador. Serão
+documentados a versão instalada, o disco de destino, os ajustes de virtualização
+no firmware, o acesso administrativo, o armazenamento e a configuração da rede.
+Os dados existentes nos discos serão conferidos e preservados antes da instalação.
+
+\begin{enumerate}
+\item Conferir os requisitos da versão escolhida e o suporte à virtualização.
+\item Preparar a mídia de instalação e registrar o disco selecionado.
+\item Instalar o Proxmox VE e configurar o endereço de gerenciamento.
+\item Preparar o armazenamento e a conexão de rede das máquinas virtuais.
+\item Criar a máquina virtual Linux e registrar CPU, memória e espaço alocados.
+\item Definir inicialização automática, atualização e rotinas de backup.
+\item Testar reinício do host, recuperação da máquina virtual e acesso aos serviços.
+\end{enumerate}
+
+\begin{tabularx}{\textwidth}{@{}p{4.4cm}Y@{}}
+\toprule
+Registro & Situação \\
+\midrule
+Versão e data de instalação & \pendente \\
+Discos e armazenamento do Proxmox & \pendente \\
+Endereço de gerenciamento e rede virtual & \pendente \\
+Sistema e recursos da máquina virtual & \pendente \\
+Backup e restauração da máquina virtual & A validar após a instalação \\
+\bottomrule
+\end{tabularx}
+O backup da máquina virtual será documentado em conjunto com o backup da
+aplicação, registrando a finalidade de cada cópia e os testes de recuperação.
+
+\section{Etapas a documentar}
+\begin{enumerate}
+\item Instalação e configuração do Proxmox VE no computador físico.
+\item Criação da máquina virtual Linux e definição dos recursos e da rede.
+\item Instalação do sistema da máquina virtual, com versão e justificativa.
+\item Preparação de discos, usuários, permissões e atualizações no ambiente virtual.
+\item Instalação do Docker na máquina virtual e definição de serviços, redes e volumes persistentes.
+\item Preparação ou migração consistente do banco, configuração e chaves.
+\item Implantação da aplicação e configuração do acesso privado.
+\item Configuração dos backups, destino externo e monitoramento.
+\item Testes de acesso, reinício, isolamento dos usuários e recuperação.
+\end{enumerate}
+
+\section{Separação do estado persistente}
+O relatório deverá registrar onde ficam o banco, os arquivos de configuração,
+as chaves, os backups e os logs. Esses caminhos serão definidos na instalação.
+Credenciais não deverão ser incorporadas às imagens nem aos arquivos públicos
+do frontend. O procedimento de migração precisa preservar as chaves existentes
+quando houver dados criptografados.
+
+\section{Critérios propostos para entrada em operação}
+\begin{itemize}
+\item Aplicação acessível pelos dispositivos autorizados e login funcional.
+\item Dados e permissões preservados após reiniciar o servidor.
+\item Serviços iniciados de forma consistente após a reinicialização.
+\item Máquina virtual e serviços recuperados após reiniciar o host Proxmox VE.
+\item Backup recente verificado e restauração concluída em ambiente separado.
+\item Consumo de recursos e falhas observáveis por logs e medições.
+\end{itemize}
+Datas, responsáveis e resultados desses critérios serão preenchidos após os testes.
+
+\chapter{Rede doméstica}
+\section{Levantamento inicial}
+A rede existente ainda precisa ser mapeada. Foi incluído no planejamento um
+switch TP-Link TL-SG1016D por \dinheiro{400,00} e cabeamento para dez máquinas.
+Serão levantados modem ou ONT, roteador, pontos de acesso, percursos dos cabos
+e dispositivos que acessarão o servidor.
+
+\begin{tabularx}{\textwidth}{@{}p{4cm}Y@{}}
+\toprule
+Informação & Situação \\
+\midrule
+Provedor e plano de internet & \naoinformado \\
+Modem/ONT e roteador & Modelos e funções a confirmar \\
+Switch & TP-Link TL-SG1016D previsto; instalação pendente \\
+Pontos de acesso Wi-Fi & Existência e modelos a confirmar \\
+Cabeamento e pontos disponíveis & Dez conexões previstas; percursos, metragens e custo pendentes \\
+Local do servidor & Alimentação, ventilação e conexão a definir \\
+Sub-rede e DHCP & Configuração atual a levantar \\
+Dispositivos e usuários autorizados & Lista a elaborar \\
+\bottomrule
+\end{tabularx}
+
+\section{Switch e cabeamento para dez máquinas}
+O TL-SG1016D é um switch não gerenciável com 16 portas RJ45 de
+10/100/1000 Mbps, conforme a documentação do fabricante \cite{tplinkswitch}.
+Sua função prevista é conectar as máquinas cabeadas à rede doméstica.
+Serão registrados a versão de hardware adquirida, o local de instalação,
+a identificação dos cabos e a ocupação de cada porta.
+
+Dez máquinas e uma conexão ao roteador ocupam onze portas, deixando cinco
+disponíveis nessa configuração. Se o servidor não estiver entre as dez máquinas,
+sua conexão ocupará uma porta adicional. O inventário de portas será ajustado
+quando a relação dos equipamentos for definida.
+
+O cabeamento é planejado inicialmente com dez conexões, uma por máquina,
+usando categoria 6 como proposta a confirmar no levantamento. Para cada ponto,
+serão medidos o percurso até o switch, a folga necessária e o comprimento final.
+O total de metros será a soma dos dez percursos; nenhuma metragem foi presumida.
+
+\begin{tabularx}{\textwidth}{@{}p{4.5cm}Y@{}}
+\toprule
+Item de cabeamento & Dimensionamento previsto \\
+\midrule
+Conexões às máquinas & Dez pontos, identificados de P01 a P10 \\
+Cabos de rede & Dez percursos; categoria e metragens a confirmar \\
+Ligação switch--roteador & Uma conexão adicional; verificar cabo disponível \\
+Terminações e cabos de conexão & Conforme instalação direta ou pontos com tomadas \\
+Organização e fixação & Etiquetas, organizadores e canaletas conforme os percursos \\
+Preço e instalação & A cotar após definir comprimentos e forma de montagem \\
+\bottomrule
+\end{tabularx}
+Tomadas, patch panel e cabos de conexão serão dimensionados se for adotado
+cabeamento estruturado. O levantamento financeiro mantém o cabeamento como
+custo pendente, sem tratá-lo como gratuito. Cada conexão será identificada
+e testada antes da entrada em operação.
+
+\section{Topologia conceitual}
+\begin{center}
+\fbox{\parbox{0.88\textwidth}{\centering
+Internet $\longrightarrow$ modem/ONT $\longrightarrow$ roteador\\[4pt]
+Roteador $\longrightarrow$ switch TP-Link TL-SG1016D\\[4pt]
+Switch $\longrightarrow$ dez máquinas por cabo\\[4pt]
+Servidor: entre as dez máquinas ou em porta adicional, a confirmar\\[4pt]
+Roteador $\longrightarrow$ dispositivos Wi-Fi}}
+\end{center}
+O desenho é conceitual: modem e roteador podem ser um único equipamento.
+O diagrama real será atualizado com modelos, portas, conexões e locais.
+
+\section{Plano de configuração}
+Serão registrados os endereços do host Proxmox VE e da máquina virtual,
+a conexão entre a rede física e a virtual, a faixa DHCP, os nomes utilizados,
+as regras de acesso e o método de administração remota. Uma reserva DHCP para
+o servidor poderá ser definida conforme a rede existente. Segmentação, rede
+de visitantes e isolamento de dispositivos de automação serão avaliados de
+acordo com os recursos do roteador e as necessidades identificadas.
+O switch escolhido não oferece gerenciamento de VLANs; qualquer segmentação
+deverá considerar a capacidade dos demais equipamentos e o desenho final da rede.
+
+Para a aplicação financeira, a documentação atual prevê acesso privado por
+Tailscale Serve. Qualquer mudança desse desenho exigirá registrar a justificativa
+e os testes correspondentes. Endereços, nomes e permissões reais estão pendentes.
+
+\section{Testes previstos}
+\begin{itemize}
+\item Conectividade do servidor e manutenção do endereço após reinício.
+\item Resolução de nomes e acesso autorizado à aplicação.
+\item Comportamento do acesso remoto e das restrições aplicadas.
+\item Taxa de transferência local, método de medição e equipamentos envolvidos.
+\item Identificação e teste das dez conexões e da ligação ao roteador.
+\item Recuperação da conexão após reiniciar roteador e servidor.
+\end{itemize}
+
+\chapter{Levantamento e acompanhamento financeiro}
+\section{Critérios do levantamento}
+O controle financeiro terá três grupos: peças já disponíveis, investimento
+novo e despesas recorrentes. O preço histórico de uma peça existente será
+registrado apenas quando conhecido; ele não será contado novamente como compra
+do home server. Valor de mercado ou de reposição, se levantado, ficará separado.
+
+Uma peça reaproveitada pode ter custo incremental de aquisição igual a zero,
+mas somente após confirmar seu uso e eventuais reparos. Campos sem informação
+não significam custo zero. O responsável informou um orçamento inicial de
+\textbf{\dinheiro{15.000,00}}. Os componentes do computador principal somam
+\dinheiro{11.100,00}; rack e dois gabinetes somam \dinheiro{1.744,00};
+o switch acrescenta \dinheiro{400,00}, resultando em
+\textbf{\dinheiro{13.244,00}} de itens com preço informado.
+O cabeamento para dez máquinas foi incluído com custo a cotar.
+Os preços são fornecidos pelo responsável,
+sem validação independente de mercado, fornecedor ou disponibilidade.
+O total pago permanece indeterminado, pois não foram informados comprovantes
+ou valores efetivamente desembolsados.
+
+O limite é tratado como orçamento global de investimento. A lista de
+\dinheiro{11.100,00} pertence ao computador principal; o servidor utilizará
+as peças antigas. Rack e gabinetes foram registrados como infraestrutura física.
+Demais adequações do servidor, rede, backups e reserva serão dimensionados
+dentro da margem preliminar de \dinheiro{1.756,00}, que também precisará cobrir
+o cabeamento ainda sem preço.
+A estimativa é provisória, sobretudo pela correção necessária da memória DDR4.
+
+\section{Limites e indicadores}
+\begin{tabularx}{\textwidth}{@{}p{6.2cm}Y@{}}
+\toprule
+Indicador & Situação \\
+\midrule
+Orçamento global informado & \textbf{\dinheiro{15.000,00}} \\
+Subtotal previsto do computador principal & \textbf{\dinheiro{11.100,00}} \\
+Subtotal previsto de rack e gabinetes & \textbf{\dinheiro{1.744,00}} \\
+Switch previsto & \dinheiro{400,00} \\
+Cabeamento para dez máquinas & A cotar; não incluído no total abaixo \\
+Total previsto dos itens com preço & \textbf{\dinheiro{13.244,00}} \\
+Parcela do orçamento comprometida na estimativa & 88,29\% \\
+Margem preliminar após os itens com preço & \textbf{\dinheiro{1.756,00}} (11,71\%) \\
+Novas despesas do servidor & Reaproveitamento previsto; adequações a levantar \\
+Parcela destinada à rede e aos backups & A distribuir dentro do orçamento global \\
+Reserva para imprevistos & Percentual ou valor a definir \\
+Total pago confirmado & Indeterminado; pagamentos não informados \\
+Total previsto para concluir & Total listado mais correções e itens ainda não levantados \\
+Desembolso restante & Depende de compras e compromissos registrados \\
+Custo mensal e anual de operação & Depende de medição e tarifas \\
+\bottomrule
+\end{tabularx}
+
+\section{Patrimônio disponível}
+\begin{tabularx}{\textwidth}{@{}p{4.3cm}p{3cm}Y@{}}
+\toprule
+Item informado & Valor histórico & Tratamento no projeto \\
+\midrule
+i5-10400F & \naoinformado & Reaproveitamento sujeito à confirmação \\
+Placa B450M & \naoinformado & Modelo e compatibilidade pendentes \\
+Memória DDR4, 16 GB & \naoinformado & Reaproveitamento a validar \\
+HD, 1 TB & \naoinformado & Reaproveitamento a validar \\
+Fonte, 650 W & \naoinformado & Reaproveitamento a validar \\
+\bottomrule
+\end{tabularx}
+
+\section{Computador principal: componentes e preços informados}
+\begin{longtable}{@{}p{0.7cm}p{3.5cm}p{5cm}r@{}}
+\toprule
+ID & Componente & Especificação informada & Valor \\
+\midrule
+\endfirsthead
+\toprule
+ID & Componente & Especificação informada & Valor \\
+\midrule
+\endhead
+A01 & Processador & AMD Ryzen 7 9700X & \dinheiro{1.700,00} \\
+A02 & Water cooler & Modelo e dimensões não informados & \dinheiro{200,00} \\
+A03 & Placa-mãe & ASUS B650M; modelo completo a confirmar & \dinheiro{750,00} \\
+A04 & Memória & DDR4, 32 GB (2 x 16 GB), 3200 MHz; incompatível com a plataforma & \dinheiro{1.000,00} \\
+A05 & Placa de vídeo & AMD Radeon RX 9070 XT, 16 GB & \dinheiro{5.600,00} \\
+A06 & SSD & 500 GB; modelo e interface a confirmar & \dinheiro{600,00} \\
+A07 & HD & 2 TB; modelo a confirmar & \dinheiro{750,00} \\
+A08 & Fonte & 850 W, 80 Plus Gold, modular; modelo a confirmar & \dinheiro{500,00} \\
+\midrule
+\multicolumn{3}{@{}l}{\textbf{Subtotal informado}} & \textbf{\dinheiro{11.100,00}} \\
+\bottomrule
+\end{longtable}
+O preço da memória foi considerado como valor do kit completo, não por módulo.
+Os demais preços foram tratados como o valor de uma unidade de cada item.
+Esta tabela reproduz o planejamento recebido, sem registrar compras realizadas.
+Fretes, encargos e descontos não foram discriminados e não se presume que
+estejam incluídos. Cada aquisição deverá identificar fornecedor, data e garantia.
+
+\section{Infraestrutura física: rack e gabinetes}
+\begin{tabularx}{\textwidth}{@{}Ycrr@{}}
+\toprule
+Item & Qtd. & Valor unitário & Subtotal \\
+\midrule
+Rack servidor de piso, 19 polegadas, 12U, 470 mm, desmontável
+& 1 & \dinheiro{944,00} & \dinheiro{944,00} \\
+Gabinete servidor K-mex rack 19 polegadas, 4U, sem fonte, CR-S350
+& 2 & \dinheiro{400,00} & \dinheiro{800,00} \\
+\midrule
+\multicolumn{3}{@{}l}{\textbf{Subtotal da infraestrutura física}}
+& \textbf{\dinheiro{1.744,00}} \\
+\bottomrule
+\end{tabularx}
+O valor de \dinheiro{400,00} foi considerado por gabinete; o custo das duas
+unidades foi calculado como \dinheiro{800,00}. Essa premissa permanece explícita
+até a conferência do preço. Não foram informados frete, fornecedor, garantia
+ou confirmação de pagamento desses itens.
+
+\section{Rede: switch e cabeamento}
+\begin{tabularx}{\textwidth}{@{}Ycrr@{}}
+\toprule
+Item & Qtd. & Valor unitário & Subtotal \\
+\midrule
+Switch TP-Link TL-SG1016D, 16 portas, 10/100/1000 Mbps
+& 1 & \dinheiro{400,00} & \dinheiro{400,00} \\
+Cabeamento de rede para máquinas, com metragens a levantar
+& 10 pontos & \pendente & \pendente \\
+\midrule
+\multicolumn{3}{@{}l}{\textbf{Subtotal da rede com preço informado}}
+& \textbf{\dinheiro{400,00}} \\
+\bottomrule
+\end{tabularx}
+O subtotal inclui somente o switch. Cabos, terminações, acessórios e instalação
+permanecem pendentes de cotação. O cabo da ligação ao roteador será incluído
+se não houver um disponível para reaproveitamento. Não há confirmação de compra
+ou pagamento desses itens.
+
+\section{Análise do orçamento e itens adicionais}
+\begin{align*}
+I_{\mathrm{PC}} &= \dinheiro{11.100,00},\\
+I_{\mathrm{infra}} &= 944 + 2 \times 400 = \dinheiro{1.744,00},\\
+I_{\mathrm{switch}} &= \dinheiro{400,00},\\
+I_{\mathrm{lista}} &= 11100 + 1744 + 400 = \dinheiro{13.244,00},\\
+S_{\mathrm{preliminar}} &= \dinheiro{15.000,00} - \dinheiro{13.244,00}
+= \dinheiro{1.756,00}.
+\end{align*}
+A margem preliminar não é um saldo de caixa ou confirmação de economia:
+precisa absorver o cabeamento de dez máquinas, a diferença de preço da memória compatível, fretes,
+acessórios e demais itens ainda ausentes do levantamento. A GPU representa
+aproximadamente 50,5\% do subtotal do computador principal. Esse valor não
+constitui gasto com placa de vídeo do servidor.
+
+Ainda serão levantados ventoinhas, fixações do rack, cabos, armazenamento de backup
+separado, demais equipamentos de rede e proteção elétrica, conforme a necessidade e
+o inventário existente. Não há valores atribuídos a esses itens. Nenhum custo
+de uma configuração nova será somado novamente como peça reaproveitada.
+
+\section{Registro de cotações e compras}
+Para cada item, usar o custo completo:
+\begin{equation}
+C_{\mathrm{item}} = q p + f + a - d,
+\end{equation}
+em que $q$ é a quantidade, $p$ o preço unitário, $f$ o frete, $a$ os encargos
+adicionais não incluídos no preço e $d$ os descontos. Fretes compartilhados
+devem ser rateados ou registrados uma única vez para evitar duplicidade.
+
+\begin{tabularx}{\textwidth}{@{}p{3.7cm}Y@{}}
+\toprule
+Campo do lançamento & Conteúdo esperado \\
+\midrule
+Identificador e categoria & Servidor, rede, backup ou serviço \\
+Item e especificação & Modelo completo e quantidade \\
+Fornecedor e datas & Cotação, compra, recebimento e pagamento \\
+Preço e adicionais & Preço unitário, frete, encargos e descontos \\
+Previsto e contratado & Estimativa e valor efetivamente acordado \\
+Pago e saldo & Valores pagos, parcelas e valor ainda devido \\
+Situação e evidência & Cotado, comprado, recebido, testado; comprovante e garantia \\
+\bottomrule
+\end{tabularx}
+
+\textbf{Compras nesta versão:} o início da aquisição foi informado e a lista
+de preços foi recebida, mas ainda faltam datas, fornecedores, situação dos
+pedidos e valores pagos. As despesas realizadas serão inseridas quando esses
+dados forem fornecidos. Em compras parceladas, o valor total contratado
+integra o investimento; as parcelas descrevem o fluxo de caixa e não são somadas
+novamente ao total.
+
+\section{Consolidação do investimento}
+\begin{align}
+I_{\mathrm{base}} &= I_{\mathrm{PC}} + I_{\mathrm{infra}} + I_{\mathrm{servidor}}
++ I_{\mathrm{rede}} + I_{\mathrm{backup}},\\
+I_{\mathrm{previsto}} &= I_{\mathrm{base}} + R,\\
+S_{\mathrm{orcamento}} &= B - I_{\mathrm{previsto}},\\
+\Delta I &= I_{\mathrm{realizado}} - I_{\mathrm{base}}.
+\end{align}
+$I_{\mathrm{PC}}$ representa a compra do computador principal e
+$I_{\mathrm{infra}}$ os itens de rack e gabinetes.
+$I_{\mathrm{servidor}}$ representa as novas despesas de adequação do servidor,
+sem somar novamente o valor das peças antigas reaproveitadas ou os itens
+já incluídos na infraestrutura física.
+$I_{\mathrm{rede}}$ inclui o switch de \dinheiro{400,00}, o cabeamento e
+os demais itens de rede que vierem a ser cotados; somente o switch tem preço
+informado nesta versão.
+$R$ representa a reserva para imprevistos e $B$ o limite informado,
+nesta versão igual a \dinheiro{15.000,00}. A reserva integra esse limite,
+não constitui autorização para ultrapassá-lo. Para comparar
+previsto e realizado, os dois valores devem abranger o mesmo conjunto de itens.
+Valores contratados, valores pagos e compras ainda previstas serão apresentados
+separadamente. O saldo a pagar não é equivalente ao saldo do orçamento.
+
+\section{Custos recorrentes e energia}
+Os custos recorrentes poderão incluir energia, serviços contratados,
+armazenamento externo e manutenção. O plano de internet existente só entra
+como despesa incremental se houver aumento atribuível ao projeto; uma eventual
+parcela do custo atual deverá ser apresentada como rateio separado.
+
+O consumo mensal é estimado a partir da potência média medida na tomada:
+\begin{align}
+E_{\mathrm{mes}} &= \frac{P_{\mathrm{media}}}{1000}\,h_{\mathrm{dia}}\,n_{\mathrm{dias}},\\
+C_{\mathrm{energia}} &= E_{\mathrm{mes}}\,T.
+\end{align}
+$P_{\mathrm{media}}$ está em watts, $h_{\mathrm{dia}}$ em horas por dia e $T$ é
+a tarifa efetiva por kWh aplicável ao consumo incremental, com os componentes
+variáveis pertinentes à conta. As potências nominais de 650 W da fonte existente
+e de 850 W da fonte proposta não são medições do consumo do computador.
+Equipamentos de rede adicionais também
+devem ser considerados no limite de medição ou registrados separadamente.
+
+\begin{tabularx}{\textwidth}{@{}YYY@{}}
+\toprule
+Potência hipotética & Consumo: 24 h/dia, 30 dias & Custo na tarifa $T$ \\
+\midrule
+30 W & 21,6 kWh & $21{,}6\,T$ reais \\
+60 W & 43,2 kWh & $43{,}2\,T$ reais \\
+100 W & 72,0 kWh & $72{,}0\,T$ reais \\
+\bottomrule
+\end{tabularx}
+\textbf{Os três cenários são exemplos de cálculo, não medições ou previsões
+do consumo deste servidor.} A tarifa e a potência real ainda não foram informadas.
+
+\section{Custo total de propriedade}
+Para um horizonte de $N$ meses, o cenário previsto pode ser expresso por:
+\begin{equation}
+\mathrm{TCO}(N)=I_{\mathrm{inicial}}+
+\sum_{m=1}^{N}\left(C_{\mathrm{energia},m}+C_{\mathrm{servicos},m}
++C_{\mathrm{manutencao},m}\right).
+\end{equation}
+Reposições e expansões deverão ser incluídas uma única vez na categoria
+correspondente. Poderão ser comparados cenários de 12 e 36 meses após obter
+preços e medições. Não há estimativa de retorno financeiro nesta versão,
+pois nenhum benefício monetário foi quantificado.
+
+\chapter{Plano de execução, testes e riscos}
+\section{Marcos do projeto}
+\begin{tabularx}{\textwidth}{@{}p{0.8cm}p{4cm}YY@{}}
+\toprule
+ID & Marco & Dependência & Situação \\
+\midrule
+M1 & Finalizar a aplicação & Validação da versão de entrega & Em andamento \\
+M2 & Confirmar inventário e orçamento & Modelos, valores e limite & Em andamento \\
+M3 & Comprar e montar o computador & M2 e recebimento das peças & A documentar \\
+M4 & Instalar e configurar o Proxmox VE & M3 e definição de discos e rede & Planejado \\
+M5 & Criar a máquina virtual e preparar os serviços & M4 e escolha do sistema Linux & Planejado \\
+M6 & Configurar rede e acesso & Levantamento e ambiente virtual disponível & Planejado \\
+M7 & Implantar e validar a aplicação & M1, M5 e M6 & Planejado \\
+M8 & Medir custos e iniciar operação & Backups e testes de aceitação & Planejado \\
+\bottomrule
+\end{tabularx}
+Datas e duração serão definidas conforme a conclusão da aplicação, o orçamento
+e a entrega dos componentes. O planejamento não atribui prazos ainda não acordados.
+
+\section{Registro dos testes}
+\begin{tabularx}{\textwidth}{@{}p{3.5cm}YY@{}}
+\toprule
+Área & Evidência a coletar & Resultado atual \\
+\midrule
+Hardware & Memória, discos, estabilidade e temperaturas & Sem medição registrada \\
+Proxmox VE & Acesso administrativo, recursos, rede e reinício da máquina virtual & A executar \\
+Aplicação & Login, contas, transações e isolamento & A validar na versão instalada \\
+Serviços & Inicialização e recuperação após reinício & A executar \\
+Rede & Acesso permitido, restrições e transferência & A executar \\
+Backup & Integridade e restauração isolada & A executar no servidor \\
+Energia & Potência média e período de medição & A executar \\
+\bottomrule
+\end{tabularx}
+Cada resultado deverá informar ferramenta ou método, condições, data,
+resultado esperado, resultado obtido e eventual correção aplicada.
+
+\section{Riscos e decisões pendentes}
+\begin{tabularx}{\textwidth}{@{}p{4cm}YY@{}}
+\toprule
+Situação & Efeito no projeto & Ação prevista \\
+\midrule
+CPU e placa-mãe incompatíveis na lista & Compra inadequada e atraso & Confirmar modelos antes da aquisição \\
+DDR4 na lista Ryzen 9700X / B650 & Memória incompatível e alteração da estimativa & Corrigir para DDR5 e confirmar novo preço \\
+Estado das peças desconhecido & Falhas ou reposições inesperadas & Inspeção e testes antes da adoção \\
+Lista parcial e adequações pendentes & Custo final ainda indeterminado & Cotar cabeamento e demais itens dentro da margem de \dinheiro{1.756,00} \\
+Backup só no próprio servidor & Perda conjunta de dados e cópias & Definir destino externo e testar restauração \\
+Configuração de rede não levantada & Acesso ou desempenho inadequados & Mapear rede antes de comprar equipamentos \\
+Procedimentos de deploy em evolução & Instalação incompleta & Conferir artefatos e validar no destino \\
+\bottomrule
+\end{tabularx}
+
+\chapter{Diário e próximas atualizações}
+\section{Registro inicial}
+\begin{tabularx}{\textwidth}{@{}p{2.6cm}Y@{}}
+\toprule
+Data & Registro \\
+\midrule
+08/10/2026 & Criação da versão 0.1. Aplicação em finalização, início da aquisição
+de componentes informado, inventário preliminar registrado e estrutura
+financeira preparada. Orçamento global de \dinheiro{15.000,00} informado;
+lista de compras a enviar posteriormente. Nenhuma montagem ou implantação
+atestada nesta versão. \\
+08/10/2026 & Versão 0.2. Nome atualizado para Projeto Finanças em todo o
+documento. Proxmox VE incluído no planejamento, com instalação no computador
+físico e máquina virtual Linux para Docker; configuração e testes pendentes. \\
+08/10/2026 & Versão 0.3. Lista de oito componentes e valores registrada,
+com subtotal de \dinheiro{11.100,00} e margem preliminar de \dinheiro{3.900,00}.
+Memória DDR4 incompatível com AM5 registrada como pendência. Confirmada a
+destinação da lista ao computador principal, com peças antigas para o servidor.
+Arquivo principal definido como \path{relatorio/ProjetoFinancas.tex};
+compras realizadas ainda a confirmar. \\
+08/10/2026 & Versão 0.4. Incluídos rack de piso 19 polegadas, 12U, 470 mm,
+por \dinheiro{944,00}, e dois gabinetes K-mex CR-S350, 4U, sem fonte,
+considerando \dinheiro{400,00} por unidade. Total dos itens listados atualizado
+para \dinheiro{12.844,00}, com margem preliminar de \dinheiro{2.156,00}.
+Preço unitário dos gabinetes e encaixe físico a conferir. \\
+08/10/2026 & Versão 0.5. Incluídos switch TP-Link TL-SG1016D por
+\dinheiro{400,00} e cabeamento para dez máquinas, ainda sem metragem e preço.
+Total dos itens com preço atualizado para \dinheiro{13.244,00}, com margem
+preliminar de \dinheiro{1.756,00} antes do cabeamento e demais custos pendentes. \\
+\bottomrule
+\end{tabularx}
+
+\section{Modelo para novas entradas}
+% Copiar esta estrutura para cada evento real e preencher com fatos e evidências.
+\begin{description}
+\item[Data e etapa:] a preencher.
+\item[Objetivo:] o que se pretendia realizar.
+\item[Decisão e justificativa:] alternativa escolhida e motivo.
+\item[Execução:] atividades efetivamente realizadas.
+\item[Custo:] estimativa, valor contratado, valor pago e comprovante.
+\item[Resultado e evidência:] teste, medição, fotografia ou registro técnico.
+\item[Pendências:] próximo passo e dependências.
+\end{description}
+
+\section{Informações para a versão seguinte}
+\begin{enumerate}
+\item Nome do autor e eventual finalidade acadêmica ou institucional do relatório.
+\item Conferência das peças antigas e sequência de transferência para o servidor.
+\item Correção da memória para DDR5, preço atualizado e modelo completo da ASUS B650M.
+\item Itens adicionais, fretes, distribuição da margem e gastos já realizados.
+\item Conferência do preço unitário dos gabinetes, profundidade útil do rack e fixações.
+\item Modelo correto da placa-mãe antiga e identificação completa das demais peças.
+\item Versão final da aplicação e resultados de sua validação.
+\item Equipamentos de rede existentes e local previsto para o servidor.
+\item Percursos e metragens dos dez pontos, ligação ao roteador e cotação do cabeamento.
+\item Versão do Proxmox VE, armazenamento e recursos previstos para a máquina virtual.
+\end{enumerate}
+
+\begin{thebibliography}{9}
+\addcontentsline{toc}{chapter}{Referências}
+\bibitem{repo} Projeto Finanças / FinanceHub.
+\textit{Documentação local do repositório}: README da raiz, guia do backend,
+arquitetura do frontend e guia de produção em home server.
+Consultados em 8 out. 2026. Documentos de trabalho sujeitos a atualização.
+
+\bibitem{intelcpu} Intel.
+\textit{Intel Core i5 Desktop Processors: graphics and specifications}.
+Disponível em
+\url{https://www.intel.com/content/dam/support/us/en/documents/processors/core/Intel-Core-i5-HD-GFX.pdf}.
+Acesso em: 8 out. 2026.
+
+\bibitem{intelf} Intel.
+\textit{Does My Computer with Intel Core Processor Number Ending with F Need a Discrete Graphics Card?}
+Disponível em
+\url{https://www.intel.com/content/www/us/en/support/articles/000058487/processors.html}.
+Acesso em: 8 out. 2026.
+
+\bibitem{amdb450} AMD.
+\textit{AMD Socket AM4 Chipsets: Specs and CPU Compatibility}.
+Disponível em \url{https://www.amd.com/en/products/processors/chipsets/am4.html}.
+Acesso em: 8 out. 2026.
+\bibitem{proxmox} Proxmox Server Solutions.
+\textit{Proxmox VE Administration Guide}.
+Disponível em \url{https://pve.proxmox.com/pve-docs/pve-admin-guide.html}.
+Acesso em: 8 out. 2026.
+\bibitem{ryzen9700} AMD.
+\textit{AMD Ryzen 7 9700X: especificações}.
+Disponível em
+\url{https://www.amd.com/en/products/processors/desktops/ryzen/9000-series/amd-ryzen-7-9700X.html}.
+Acesso em: 8 out. 2026.
+
+\bibitem{asusb650} ASUS.
+\textit{PRIME B650M-A: especificações técnicas}.
+Referência da plataforma B650; não identifica o modelo exato da lista.
+Disponível em
+\url{https://www.asus.com/motherboards-components/motherboards/prime/prime-b650m-a/techspec/}.
+Acesso em: 8 out. 2026.
+\bibitem{tplinkswitch} TP-Link Brasil.
+\textit{TL-SG1016D: switch Gigabit de mesa ou rack de 16 portas}.
+Disponível em
+\url{https://www.tp-link.com/br/business-networking/soho-switch-unmanaged/tl-sg1016d/}.
+Acesso em: 8 out. 2026.
+\end{thebibliography}
+\end{document}
